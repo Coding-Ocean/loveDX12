@@ -1,0 +1,141 @@
+☆VertexShader.htmlを修正
+cbuffer b0 : register(b0)
+{
+    matrix world;
+    matrix view;
+    matrix proj;
+}
+
+float4 main( float4 pos : POSITION ) : SV_POSITION
+{
+    return mul(proj, mul(view, mul(world, pos)));
+}
+
+☆ヘッダ
+#include<DirectXMath.h>
+using namespace DirectX;
+
+//コンスタントバッファ０構造体
+struct CONST_BUF0 {
+    XMMATRIX world;
+    XMMATRIX view;
+    XMMATRIX proj;
+};
+
+//コンスタントバッファ０
+ID3D12Resource* ConstBuf0;
+CONST_BUF0* MapConstBuf0;
+
+//ディスクリプタヒープ
+ID3D12DescriptorHeap* CbvHeap;// Const Buf View Heap
+
+
+☆リソース
+		//コンスタントバッファとディスクリプタヒープ
+		{
+			//コンスタントバッファ０をつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = 256;
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc = { 1, 0 };
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&ConstBuf0)
+				);
+				assert(SUCCEEDED(Hr));
+
+				//マップしておいて、メインループ中で更新する。
+				Hr = ConstBuf0->Map(0, nullptr, (void**)&MapConstBuf0);
+				assert(SUCCEEDED(Hr));
+			}
+			//ディスクリプタヒープ
+			{
+				//コンスタントバッファ０の「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+				{
+					D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+					desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+					desc.NumDescriptors = 1;//コンスタントバッファビュー１つ
+					desc.NodeMask = 0;
+					desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+					Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvHeap));
+					assert(SUCCEEDED(Hr));
+				}
+
+				auto hCbvHeap = CbvHeap->GetCPUDescriptorHandleForHeapStart();
+				
+				//コンスタントバッファ０の「ビュー」を「ディスクリプタヒープ」につくる
+				{
+					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+					desc.BufferLocation = ConstBuf0->GetGPUVirtualAddress();
+					desc.SizeInBytes = static_cast<UINT>(ConstBuf0->GetDesc().Width);
+					Device->CreateConstantBufferView(&desc, hCbvHeap);
+				}
+			}
+		}
+
+☆ルートシグニチャ
+		//ディスクリプタレンジ。ディスクリプタヒープとシェーダを紐づける役割をもつ。
+		D3D12_DESCRIPTOR_RANGE  range[1] = {};
+		UINT b0 = 0;
+		range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		range[0].BaseShaderRegister = b0;
+		range[0].NumDescriptors = 1;
+		range[0].RegisterSpace = 0;
+		range[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		//ルートパラメタをディスクリプタテーブルとして使用
+		D3D12_ROOT_PARAMETER rootParam[1] = {};
+		rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParam[0].DescriptorTable.pDescriptorRanges = range;
+		rootParam[0].DescriptorTable.NumDescriptorRanges = _countof(range);
+		rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+		//ルートシグニチャの記述
+		D3D12_ROOT_SIGNATURE_DESC desc = {};
+		desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		desc.pParameters = rootParam;
+		desc.NumParameters = _countof(rootParam);
+
+☆メインループ
+			//コンスタントバッファ０更新
+			//　回転用ラジアン
+			static float radian = 0;
+			radian += 0.01f;
+			//　ワールドマトリックス
+			MapConstBuf0->world = XMMatrixRotationY(radian);
+			//　ビューマトリックス
+			XMFLOAT3 eye(0, 0, -2.0f), target(0, 0, 0), up(0, 1, 0);
+			MapConstBuf0->view = XMMatrixLookAtLH(
+				XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+			//　プロジェクションマトリックス
+			MapConstBuf0->proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
+
+			//コマンドリストにディスクリプタヒープを紐づける
+			CommandList->SetDescriptorHeaps(1, &CbvHeap);
+			//ディスクリプタテーブルにディスクリプタヒープをセット
+			auto hCbvHeap = CbvHeap->GetGPUDescriptorHandleForHeapStart();
+			CommandList->SetGraphicsRootDescriptorTable(0, hCbvHeap);
+
+☆解放
+		CbvHeap->Release();
+		ConstBuf0->Unmap(0, nullptr);
+		ConstBuf0->Release();
+

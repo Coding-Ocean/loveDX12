@@ -1,0 +1,129 @@
+☆PixelShader.htmlを修正
+cbuffer b1 : register(b1)
+{
+    float4 diffuse;
+}
+float4 main() : SV_TARGET
+{
+	return diffuse;
+}
+
+☆ヘッダ
+//コンスタントバッファ１構造体
+struct CONST_BUF1 {
+    XMFLOAT4 diffuse;
+};
+//コンスタントバッファ１
+ID3D12Resource* ConstBuf1;
+CONST_BUF1* MapConstBuf1;
+
+☆リソース
+		//コンスタントバッファとディスクリプタヒープ
+		{
+			//コンスタントバッファ０をつくる
+			{
+				...省略...
+			}
+    ---ここから---
+			//コンスタントバッファ１をつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = 256;
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc = { 1, 0 };
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&ConstBuf1)
+				);
+				assert(SUCCEEDED(Hr));
+
+				//マップしておいて、メインループ中で更新する。
+				Hr = ConstBuf1->Map(0, nullptr, (void**)&MapConstBuf1);
+				assert(SUCCEEDED(Hr));
+			}
+    ---ここまでを追加---
+
+			//ディスクリプタヒープ
+			{
+				//コンスタントバッファ０の「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+				{
+
+	ここを修正→       desc.NumDescriptors = 2;//コンスタントバッファ２つ
+
+				}
+
+				auto hCbvHeap = CbvHeap->GetCPUDescriptorHandleForHeapStart();
+				
+				//コンスタントバッファ０の「ビュー」を「ディスクリプタヒープ」につくる
+				{
+					...省略...
+				}
+	---ここから---
+				auto heapSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				hCbvHeap.ptr += heapSize;
+
+				//コンスタントバッファ１の「ビュー」を「ディスクリプタヒープ」につくる
+				{
+					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+					desc.BufferLocation = ConstBuf1->GetGPUVirtualAddress();
+					desc.SizeInBytes = static_cast<UINT>(ConstBuf1->GetDesc().Width);
+					Device->CreateConstantBufferView(&desc, hCbvHeap);
+				}
+    ---ここまでを追加---
+
+			}
+		}
+
+☆ルートシグニチャ
+		//ディスクリプタレンジ。ディスクリプタヒープとシェーダを紐づける役割をもつ。
+
+要素を２つに  D3D12_DESCRIPTOR_RANGE  range[2] = {};
+
+			UINT b0 = 0;
+			range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			range[0].BaseShaderRegister = b0;
+			range[0].NumDescriptors = 1;
+			range[0].RegisterSpace = 0;
+			range[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	---ここから---
+			UINT b1 = 1;
+			range[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			range[1].BaseShaderRegister = b1;
+			range[1].NumDescriptors = 1;
+			range[1].RegisterSpace = 0;
+			range[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+    ---ここまでを追加---
+
+
+☆メインループ
+			//コンスタントバッファ１を更新
+			float col = cos(radian) * 0.5f + 0.5f;
+			MapConstBuf1->diffuse = { col,1.0f,0.0f,1.0f };
+
+☆解放
+		CbvHeap->Release();
+	---ここから---
+		ConstBuf1->Unmap(0, nullptr);
+		ConstBuf1->Release();
+    ---ここまでを追加---		
+		ConstBuf0->Unmap(0, nullptr);
+		ConstBuf0->Release();
+

@@ -1,0 +1,89 @@
+======================================================================================
+頂点情報を追加　頂点テクスチャ座標バッファ
+
+☆VertexShader.hlsl
+void main(
+    in float4 i_pos : POSITION, 
+    in float2 i_uv : TEXCOORD, 
+    out float4 o_pos : SV_POSITION,
+    out float2 o_uv : TEXCOORD)
+{
+    o_pos =  mul(proj, mul(view, mul(world, i_pos)));
+    o_uv = i_uv;
+}
+
+☆ヘッダ
+ID3D12Resource*	TexcoordBuf;
+D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
+
+☆リソース
+		//頂点バッファ、テクスチャ座標。
+		{
+			//テクスチャ座標の生データ
+			float texcoords[] = {
+				0.0f,1.0f, //左下
+				0.0f,0.0f, //左上
+				1.0f,1.0f, //右下
+				1.0f,0.0f, //右上
+			};
+
+			//テクスチャ座標バッファをつくる
+			D3D12_HEAP_PROPERTIES prop = {};
+			prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+			prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			prop.CreationNodeMask = 1;
+			prop.VisibleNodeMask = 1;
+			D3D12_RESOURCE_DESC desc = {};
+			desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			desc.Alignment = 0;
+			desc.Width = sizeof(texcoords);
+			desc.Height = 1;
+			desc.DepthOrArraySize = 1;
+			desc.MipLevels = 1;
+			desc.Format = DXGI_FORMAT_UNKNOWN;
+			desc.SampleDesc.Count = 1;
+			desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			Hr = Device->CreateCommittedResource(
+				&prop,
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&TexcoordBuf));
+			assert(SUCCEEDED(Hr));
+
+			//テクスチャ座標バッファに生データをコピー
+			UINT8* mappedBuf;
+			Hr = TexcoordBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
+			assert(SUCCEEDED(Hr));
+			memcpy(mappedBuf, texcoords, sizeof(texcoords));
+			TexcoordBuf->Unmap(0, nullptr);
+
+			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
+			TexcoordBufView.BufferLocation = TexcoordBuf->GetGPUVirtualAddress();
+			TexcoordBufView.SizeInBytes = sizeof(texcoords);
+			TexcoordBufView.StrideInBytes = sizeof(float) * 2;
+		}
+
+☆パイプライン 
+    インプットエレメント
+			slot1 = 1
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, slot1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+
+☆メインループ
+				TexcoordBufView 
+
+☆解放
+		TexcoordBuf->Release();
+
+======================================================================================
+テクスチャバッファ
+
+☆ヘッダ
+//テクスチャバッファ
+ID3D12Resource* TextureBuf;
+
+変数名を変える
+ID3D12DescriptorHeap* CbvTbvHeap;// Const Buf View と Texture Buf View の Heap

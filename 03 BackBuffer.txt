@@ -1,0 +1,174 @@
+===============================================================================================
+WinMain.h
+
+☆インクルード
+#pragma comment(lib,"dxgi.lib")
+#include<dxgi1_6.h>
+#include<cmath>
+void WaitDrawDone();
+
+☆インターフェイス
+//リソース----------------------------------------------------------------------
+//バックバッファ
+IDXGISwapChain4* SwapChain;
+ID3D12Resource* BackBufs[2];
+UINT BackBufIdx;
+ID3D12DescriptorHeap* BackBufViewHeap;
+UINT BackBufViewHeapSize;
+
+
+===============================================================================================
+WinMain.cpp
+
+☆デバイスの下に追加
+	//リソース		
+	{
+		//スワップチェインをつくる(ここにバックバッファが含まれている)
+		{
+			//DXGIファクトリをつくる
+			IDXGIFactory4* dxgiFactory;
+			Hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&dxgiFactory));
+			assert(SUCCEEDED(Hr));
+
+			//スワップチェインをつくる
+			DXGI_SWAP_CHAIN_DESC1 desc = {};
+			desc.BufferCount = 2; //バックバッファ2枚
+			desc.Width = ClientWidth;
+			desc.Height = ClientHeight;
+			desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+			desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+			desc.SampleDesc.Count = 1;
+			IDXGISwapChain1* swapChain;
+			Hr = dxgiFactory->CreateSwapChainForHwnd(
+				CommandQueue, HWnd, &desc, nullptr, nullptr, &swapChain);
+			assert(SUCCEEDED(Hr));
+
+			//IDXGISwapChain4インターフェイスをサポートしているか尋ねる
+			Hr = swapChain->QueryInterface(IID_PPV_ARGS(&SwapChain));
+			assert(SUCCEEDED(Hr));
+
+			swapChain->Release();
+			dxgiFactory->Release();
+		}
+		//バックバッファ「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+			desc.NumDescriptors = 2;//バックバッファビュー２つ
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//RenderTargetView
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;//シェーダからアクセスしないのでNONEでOK
+			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&BackBufViewHeap));
+			assert(SUCCEEDED(Hr));
+		}
+		//バックバッファ「ビュー」を「ディスクリプタヒープ」につくる
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE hBbvHeap
+				= BackBufViewHeap->GetCPUDescriptorHandleForHeapStart();
+
+			BackBufViewHeapSize
+				= Device->GetDescriptorHandleIncrementSize(
+					D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+			for (UINT idx = 0; idx < 2; idx++) {
+				//バックバッファを取り出す
+				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBufs[idx]));
+				assert(SUCCEEDED(Hr));
+				//バックバッファのビューをヒープにつくる
+				hBbvHeap.ptr += idx * BackBufViewHeapSize;
+				Device->CreateRenderTargetView(BackBufs[idx], nullptr, hBbvHeap);
+			}
+		}
+	}
+
+
+☆メインループ
+		//バックバッファをクリア
+		{
+			//現在のバックバッファのインデックスを取得。このプログラムの場合0 or 1になる。
+			BackBufIdx = SwapChain->GetCurrentBackBufferIndex();
+
+			//バックバッファが描画ターゲットとして使用できるようになるまで待つ
+			D3D12_RESOURCE_BARRIER barrier;
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//リソースの状態遷移に対してバリアを設置
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースは描画ターゲット
+			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;//遷移前はPresent
+			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移後は描画ターゲット
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			CommandList->ResourceBarrier(1, &barrier);
+
+			//バックバッファのディスクリプタハンドルを用意する
+			auto hBbvHeap = BackBufViewHeap->GetCPUDescriptorHandleForHeapStart();
+			hBbvHeap.ptr += BackBufIdx * BackBufViewHeapSize;
+			//バックバッファを描画ターゲットとして設定する
+			CommandList->OMSetRenderTargets(1, &hBbvHeap, false, nullptr);
+			//描画ターゲットをクリアする
+			static float radian = 0.0f;
+			float r = cos(radian) * 0.5f + 0.5f;
+			float g = 0.25f;
+			float b = 0.5f;
+			const float clearColor[] = { r, g, b, 1.0f };
+			radian += 0.01f;
+			CommandList->ClearRenderTargetView(hBbvHeap, clearColor, 0, nullptr);
+		}
+
+		//バックバッファを表示
+		{
+			//バックバッファの描画完了を待つためのバリアを設置
+			D3D12_RESOURCE_BARRIER barrier;
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//バリアをリソースの状態遷移に対して設置
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースは描画ターゲット
+			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移前は描画ターゲット
+			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;//遷移後はPresent
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			CommandList->ResourceBarrier(1, &barrier);
+
+			//コマンドリストをクローズする
+			CommandList->Close();
+			//コマンドリストを実行する
+			ID3D12CommandList* commandLists[] = { CommandList };
+			CommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+			//描画完了を待つ
+			WaitDrawDone();
+			
+			//コマンドアロケータをリセット
+			Hr = CommandAllocator->Reset();
+			assert(SUCCEEDED(Hr));
+			//コマンドリストをリセット
+			Hr = CommandList->Reset(CommandAllocator, nullptr);
+			assert(SUCCEEDED(Hr));
+
+			//バックバッファを表示
+			SwapChain->Present(1, 0);
+		}
+
+
+☆解放
+		WaitDrawDone();
+
+		BackBufViewHeap->Release();
+		BackBufs[0]->Release();
+		BackBufs[1]->Release();
+		SwapChain->Release();
+
+
+☆関数を追加
+// 描画完了を待つ
+void WaitDrawDone()
+{
+	//現在のFence値がコマンド終了後にFenceに書き込まれるようにする
+	UINT64 fvalue = FenceValue;
+	CommandQueue->Signal(Fence, fvalue);
+	FenceValue++;
+
+	//まだコマンドキューが終了していないことを確認する
+	if (Fence->GetCompletedValue() < fvalue)
+	{
+		//このFenceにおいて、fvalue の値になったらイベントを発生させる
+		Fence->SetEventOnCompletion(fvalue, FenceEvent);
+		//イベントが発生するまで待つ
+		WaitForSingleObject(FenceEvent, INFINITE);
+	}
+}
+

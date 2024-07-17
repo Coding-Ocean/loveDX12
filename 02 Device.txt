@@ -1,0 +1,84 @@
+===============================================================================================
+WinMain.h
+
+☆インクルード
+#pragma comment(lib,"d3d12.lib")
+#include<d3d12.h>
+#include<cassert>
+
+☆インターフェイス
+//デバイス--------------------------------------------------------------------------
+ID3D12Device* Device;
+//コマンド
+ID3D12CommandAllocator* CommandAllocator;
+ID3D12GraphicsCommandList* CommandList;
+ID3D12CommandQueue* CommandQueue;
+//フェンス
+ID3D12Fence* Fence;
+HANDLE FenceEvent;
+UINT64 FenceValue;
+
+
+===============================================================================================
+WinMain.cpp
+
+☆ウィンドウの下に追加
+
+	//デバイス
+	{
+#ifdef _DEBUG
+		//デバッグモードでは、デバッグレイヤーを有効化する
+		ID3D12Debug* debug;
+		Hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debug));
+		assert(SUCCEEDED(Hr));
+		debug->EnableDebugLayer();
+		debug->Release();
+#endif
+		//デバイスをつくる(簡易バージョン)
+		{
+			Hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&Device));
+			assert(SUCCEEDED(Hr));
+		}
+		//コマンド
+		{
+			//コマンドアロケータをつくる
+			Hr = Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+				IID_PPV_ARGS(&CommandAllocator));
+			assert(SUCCEEDED(Hr));
+
+			//コマンドリストをつくる
+			Hr = Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+				CommandAllocator, nullptr, IID_PPV_ARGS(&CommandList));
+			assert(SUCCEEDED(Hr));
+
+			//コマンドキューをつくる
+			D3D12_COMMAND_QUEUE_DESC desc = {};
+			desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;		//GPUタイムアウトが有効
+			desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;		//直接コマンドキュー
+			Hr = Device->CreateCommandQueue(&desc, IID_PPV_ARGS(&CommandQueue));
+			assert(SUCCEEDED(Hr));
+		}
+		//フェンス
+		{
+			//GPUの処理完了をチェックするフェンスをつくる
+			Hr = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence));
+			assert(SUCCEEDED(Hr));
+			FenceEvent = CreateEventEx(nullptr, FALSE, FALSE, EVENT_ALL_ACCESS);
+			assert(FenceEvent != nullptr);
+			FenceValue = 1;
+		}
+	}
+
+☆メインループの後に追加
+	//解放
+	{
+		CloseHandle(FenceEvent);
+		Fence->Release();
+
+		CommandQueue->Release();
+		CommandList->Release();
+		CommandAllocator->Release();
+
+		Device->Release();
+	}
+
