@@ -32,10 +32,10 @@ public:
     { 
         return Succeeded; 
     }
-    UINT8* code() const 
+    unsigned char* code() const 
     {
         char* p = const_cast<char*>(Buffer.data());
-        return reinterpret_cast<UINT8*>(p);
+        return reinterpret_cast<unsigned char*>(p);
     }
     size_t size() const
     {
@@ -101,6 +101,7 @@ WinMain.cpp
 
 ☆VertexShader.htmlとPixelShader.htmlをプロジェクトに新規追加
 　それぞれ出力ファイル名を　assets/%(Filename).cso に変更する！
+　Shaderフィルタを作って整理する
 
 ☆リソースの次に追加
 {}

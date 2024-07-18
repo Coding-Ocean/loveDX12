@@ -78,12 +78,151 @@ D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
 ☆解放
 		TexcoordBuf->Release();
 
+
 ======================================================================================
 テクスチャバッファ
 
+☆PixelShader.hlsl
+cbuffer b1 : register(b1)
+{
+    float4 diffuse;
+}
+Texture2D<float4> tex : register(t0); //0番スロットに設定されたテクスチャ
+SamplerState smp : register(s0); //0番スロットに設定されたサンプラ
+
+
+void main(
+    in float4 i_pos : SV_POSITION,
+    in float2 i_uv : TEXCOORD,
+    out float4 o_col : SV_TARGET)
+{
+    o_col =  float4(tex.Sample(smp, i_uv)) * diffuse;
+}
+
+
+☆loveDX12プロジェクト
+まずプロジェクトにstb_image.hを追加
+
+
+WinMain.h
 ☆ヘッダ
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 //テクスチャバッファ
 ID3D12Resource* TextureBuf;
 
 変数名を変える
 ID3D12DescriptorHeap* CbvTbvHeap;// Const Buf View と Texture Buf View の Heap
+
+
+WinMain.cpp
+☆リソース
+　テクスチャバッファ
+			//テクスチャバッファをつくる（簡易バージョン）
+			{
+				//ファイルを読み込み、画像データを取り出す
+				unsigned char* pixels;
+				int width, height, bpp;
+				//  最後の引数でピクセルあたりのバイト数を強制できる
+				pixels = stbi_load("assets\\penguin1.png", &width, &height, &bpp, 4);
+				assert(pixels != nullptr);
+
+				//テクスチャバッファ
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
+				prop.CreationNodeMask = 0;//単一アダプタのため0
+				prop.VisibleNodeMask = 0;//単一アダプタのため0
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
+				desc.Width = width;
+				desc.Height = height;
+				desc.DepthOrArraySize = 1;
+				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
+				desc.SampleDesc.Quality = 0;//
+				desc.MipLevels = 1;
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
+				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,//特に指定なし
+					&desc,
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,//テクスチャ用(ピクセルシェーダから見る用)
+					nullptr,
+					IID_PPV_ARGS(&TextureBuf)
+				);
+				assert(SUCCEEDED(Hr));
+
+				//テクスチャバッファに生データをコピー
+				Hr = TextureBuf->WriteToSubresource(0,
+					nullptr, // 全領域へコピー 
+					pixels, // 元データアドレス 
+					width * bpp, // 1ラインサイズ 
+					width * height * bpp // 全サイズ
+				);
+
+				//生データ開放
+				stbi_image_free(pixels);
+			}
+　
+　ディスクリプタヒープ
+　　・CbvHeapをCbvTbvHeapに置き換える
+　　・hCbvHeapもhCbvTbvHeapに置き換える
+
+　　・ディスクリプタの数を増やす
+					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+
+　　・ビューをヒープにつくる
+				hCbvTbvHeap.ptr += heapSize;
+				
+				//テクスチャバッファの「ビュー」を「ディスクリプタヒープ」につくる
+				{
+					D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+					desc.Format = TextureBuf->GetDesc().Format;
+					desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+					desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;//2Dテクスチャ
+					desc.Texture2D.MipLevels = 1;//ミップマップは使用しないので1
+					Device->CreateShaderResourceView(TextureBuf, &desc, hCbvTbvHeap);
+				}
+
+
+☆パイプライン
+　ルートシグネチャ
+	レンジを３に増やす
+			D3D12_DESCRIPTOR_RANGE  range[3] = {};
+	レンジに追加
+			UINT t0 = 0;
+			range[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			range[2].BaseShaderRegister = t0;
+			range[2].NumDescriptors = 1;
+			range[2].RegisterSpace = 0;
+			range[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	ルートパラメタはそのまま
+
+	サンプラを追加
+			//サンプラの記述。このサンプラがシェーダーの s0 にセットされる
+			D3D12_STATIC_SAMPLER_DESC samplerDesc[1] = {};
+			samplerDesc[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;//補間しない(ニアレストネイバー)
+			samplerDesc[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//横繰り返し
+			samplerDesc[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//縦繰り返し
+			samplerDesc[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//奥行繰り返し
+			samplerDesc[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//ボーダーの時は黒
+			samplerDesc[0].MaxLOD = D3D12_FLOAT32_MAX;//ミップマップ最大値
+			samplerDesc[0].MinLOD = 0.0f;//ミップマップ最小値
+			samplerDesc[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;//オーバーサンプリングの際リサンプリングしない？
+			samplerDesc[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;//ピクセルシェーダからのみ可視
+
+			//ルートシグニチャの記述。上のrootParamとsamplerDescを１つにまとめる。
+			D3D12_ROOT_SIGNATURE_DESC desc = {};
+			desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+			desc.pParameters = rootParam;//ルートパラメータの先頭アドレス
+			desc.NumParameters = _countof(rootParam);//ルートパラメータ数
+			desc.pStaticSamplers = samplerDesc;//サンプラーの先頭アドレス
+			desc.NumStaticSamplers = _countof(samplerDesc);//サンプラー数
+
+☆解放
+		TextureBuf->Release();
