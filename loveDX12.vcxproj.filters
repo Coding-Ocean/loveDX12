@@ -16,5 +16,6 @@
     <Text Include="07 ConstantBuffer1.txt" />
     <Text Include="08 TextureBuffer.txt" />
     <Text Include="09 d3dx12.txt" />
+    <Text Include="10 DepthStencilBuffer.txt" />
   </ItemGroup>
 </Project>

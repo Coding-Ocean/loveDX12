@@ -1,0 +1,70 @@
+☆ヘッダ
+//デプスステンシルバッファ
+ID3D12Resource*				DepthStencilBuf;
+ID3D12DescriptorHeap*		DepthStencilBufViewHeap;
+
+☆リソース
+		//デプスステンシルバッファをつくる
+		{
+			D3D12_HEAP_PROPERTIES prop = {};
+			prop.Type = D3D12_HEAP_TYPE_DEFAULT;//DEFAULTだから後はUNKNOWNでよし
+			prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			D3D12_RESOURCE_DESC desc = {};
+			desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2次元のテクスチャデータとして
+			desc.Width = ClientWidth;//幅と高さはレンダーターゲットと同じ
+			desc.Height = ClientHeight;//上に同じ
+			desc.DepthOrArraySize = 1;//テクスチャ配列でもないし3Dテクスチャでもない
+			desc.Format = DXGI_FORMAT_D32_FLOAT;//深度値書き込み用フォーマット
+			desc.SampleDesc.Count = 1;//サンプルは1ピクセル当たり1つ
+			desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;//このバッファは深度ステンシルとして使用します
+			desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			desc.MipLevels = 1;
+			//デプスステンシルバッファをクリアする値
+			D3D12_CLEAR_VALUE depthClearValue = {};
+			depthClearValue.DepthStencil.Depth = 1.0f;//深さ１(最大値)でクリア
+			depthClearValue.Format = DXGI_FORMAT_D32_FLOAT;//32bit深度値としてクリア
+			//デプスステンシルバッファを作る
+			Hr = Device->CreateCommittedResource(
+				&prop,
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_DEPTH_WRITE, //デプス書き込みに使用
+				&depthClearValue,
+				IID_PPV_ARGS(&DepthStencilBuf));
+			assert(SUCCEEDED(Hr));
+		}
+		//デプスステンシルバッファ「ビュー」の入れ物である「デスクリプタヒープ」をつくる
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC desc = {};//深度に使うよという事がわかればいい
+			desc.NumDescriptors = 1;//深度ビュー1つのみ
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;//デプスステンシルビューとして使う
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&DepthStencilBufViewHeap));
+			assert(SUCCEEDED(Hr));
+		}
+		//デプスステンシルバッファ「ビュー」を「ディスクリプタヒープ」につくる
+		{
+			D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
+			desc.Format = DXGI_FORMAT_D32_FLOAT;//デプス値に32bit使用
+			desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;//2Dテクスチャ
+			desc.Flags = D3D12_DSV_FLAG_NONE;//フラグは特になし
+			D3D12_CPU_DESCRIPTOR_HANDLE hHeap
+				= DepthStencilBufViewHeap->GetCPUDescriptorHandleForHeapStart();
+			Device->CreateDepthStencilView(DepthStencilBuf, &desc, hHeap);
+		}
+
+☆パイプライン
+		depthStencilDesc.DepthEnable = true;
+
+☆メインループ
+			auto hDsvHeap = DepthStencilBufViewHeap->GetCPUDescriptorHandleForHeapStart();
+			//バックバッファとデプスステンシルバッファを描画ターゲットとして設定する
+			CommandList->OMSetRenderTargets(1, &hBbvHeap, false, &hDsvHeap);
+
+			//デプスステンシルバッファをクリアする
+			CommandList->ClearDepthStencilView(hDsvHeap, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+☆解放
+		DepthStencilBufViewHeap->Release();
+		DepthStencilBuf->Release();
