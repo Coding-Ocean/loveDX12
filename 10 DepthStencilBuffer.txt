@@ -1,7 +1,7 @@
 ☆ヘッダ
 //デプスステンシルバッファ
-ID3D12Resource*				DepthStencilBuf;
-ID3D12DescriptorHeap*		DepthStencilBufViewHeap;
+ID3D12Resource*	DepthStencilBuf;
+ID3D12DescriptorHeap* DepthStencilBufViewHeap;
 
 ☆リソース
 		//デプスステンシルバッファをつくる
@@ -49,20 +49,21 @@ ID3D12DescriptorHeap*		DepthStencilBufViewHeap;
 			desc.Format = DXGI_FORMAT_D32_FLOAT;//デプス値に32bit使用
 			desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;//2Dテクスチャ
 			desc.Flags = D3D12_DSV_FLAG_NONE;//フラグは特になし
-			D3D12_CPU_DESCRIPTOR_HANDLE hHeap
+			D3D12_CPU_DESCRIPTOR_HANDLE hDsvHeap
 				= DepthStencilBufViewHeap->GetCPUDescriptorHandleForHeapStart();
-			Device->CreateDepthStencilView(DepthStencilBuf, &desc, hHeap);
+			Device->CreateDepthStencilView(DepthStencilBuf, &desc, hDsvHeap);
 		}
 
 ☆パイプライン
 		depthStencilDesc.DepthEnable = true;
 
 ☆メインループ
+	変更
             //デプスステンシルバッファのディスクリプタハンドルを用意する
 			auto hDsvHeap = DepthStencilBufViewHeap->GetCPUDescriptorHandleForHeapStart();
 			//バックバッファとデプスステンシルバッファを描画ターゲットとして設定する
 			CommandList->OMSetRenderTargets(1, &hBbvHeap, false, &hDsvHeap);
-
+	追加
 			//デプスステンシルバッファをクリアする
 			CommandList->ClearDepthStencilView(hDsvHeap, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
