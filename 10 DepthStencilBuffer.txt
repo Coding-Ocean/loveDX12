@@ -58,6 +58,7 @@ ID3D12DescriptorHeap*		DepthStencilBufViewHeap;
 		depthStencilDesc.DepthEnable = true;
 
 ☆メインループ
+            //デプスステンシルバッファのディスクリプタハンドルを用意する
 			auto hDsvHeap = DepthStencilBufViewHeap->GetCPUDescriptorHandleForHeapStart();
 			//バックバッファとデプスステンシルバッファを描画ターゲットとして設定する
 			CommandList->OMSetRenderTargets(1, &hBbvHeap, false, &hDsvHeap);

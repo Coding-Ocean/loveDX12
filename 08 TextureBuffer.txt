@@ -119,18 +119,18 @@ ID3D12DescriptorHeap* CbvTbvHeap;// Const Buf View と Texture Buf View の Heap
 WinMain.cpp
 ☆リソース
 　テクスチャバッファ
-			//テクスチャバッファをつくる（簡易バージョン）
+			//テクスチャバッファをつくる（Unified Memory Accessバージョン）
 			{
 				//ファイルを読み込み、画像データを取り出す
 				unsigned char* pixels;
-				int width, height, bpp;
-				//  最後の引数でピクセルあたりのバイト数を強制できる
-				pixels = stbi_load("assets\\penguin1.png", &width, &height, &bpp, 4);
+				int width, height, bytePerPixel;
+				//                       最後の引数でピクセルあたりのバイト数を強制できる↓
+				pixels = stbi_load("assets\\penguin1.png", &width, &height, &bytePerPixel, 4);
 				assert(pixels != nullptr);
 
 				//テクスチャバッファ
 				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+				prop.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定。defaultでもuploadでもない
 				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
 				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
 				prop.CreationNodeMask = 0;//単一アダプタのため0
@@ -141,7 +141,6 @@ WinMain.cpp
 				desc.Height = height;
 				desc.DepthOrArraySize = 1;
 				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
-				desc.SampleDesc.Quality = 0;//
 				desc.MipLevels = 1;
 				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
 				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
@@ -160,8 +159,8 @@ WinMain.cpp
 				Hr = TextureBuf->WriteToSubresource(0,
 					nullptr, // 全領域へコピー 
 					pixels, // 元データアドレス 
-					width * bpp, // 1ラインサイズ 
-					width * height * bpp // 全サイズ
+					width * bytePerPixel, // 1ラインサイズ 
+					width * height * bytePerPixel // 全サイズ
 				);
 
 				//生データ開放
@@ -169,13 +168,13 @@ WinMain.cpp
 			}
 　
 　ディスクリプタヒープ
-　　・CbvHeapをCbvTbvHeapに置き換える
-　　・hCbvHeapもhCbvTbvHeapに置き換える
+　　・CbvHeapをCbvTbvHeapに名前変更
+　　・hCbvHeapもhCbvTbvHeapに名前変更
 
 　　・ディスクリプタの数を増やす
 					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
 
-　　・ビューをヒープにつくる
+　　・ビューをディスクリプタヒープにつくる
 				hCbvTbvHeap.ptr += heapSize;
 				
 				//テクスチャバッファの「ビュー」を「ディスクリプタヒープ」につくる
