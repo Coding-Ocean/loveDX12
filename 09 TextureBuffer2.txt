@@ -456,25 +456,25 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 			static float radian = 0;
 			float radius = 0.4f;
 			radian += 0.02f;
+			//ビューマトリックス
+			XMVECTOR eye = { 0, 0, -2 }, focus = { 0, 0, 0 }, up = { 0, 1, 0 };
+			XMMATRIX view = XMMatrixLookAtLH(eye, focus, up);
+			//プロジェクションマトリックス
+			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
 			//モデル＿ａの描画
 			{
 				//コンスタントバッファ０＿ａ更新
-				//　ワールドマトリックス
-				MapConstBuf0_a->world =
-					XMMatrixTranslation(-sin(radian) * radius, 0.0f, -cos(radian) * radius);
-				//　ビューマトリックス
-				XMFLOAT3 eye(0.0f, 0.0f, -2.0f),target(0, 0, 0), up(0, 1, 0);
-				MapConstBuf0_a->view = XMMatrixLookAtLH(
-					XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-				//　プロジェクションマトリックス
-				MapConstBuf0_a->proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
+				MapConstBuf0_a->world =	XMMatrixTranslation(
+					-sin(radian) * radius, 0.0f, -cos(radian) * radius);
+				MapConstBuf0_a->view = view;
+				MapConstBuf0_a->proj = proj;
 
 				//コンスタントバッファ１＿ａ更新
 				MapConstBuf1_a->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 
-				//コマンドリストにディスクリプタヒープ＿ａを紐づける
-				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_a);
-				//ディスクリプタテーブルにディスクリプタヒープ＿ａをセット
+				//ディスクリプタヒープ＿ａをコマンドリストに紐づける
+				CommandList->SetDescriptorHeaps(1, CbvTbvHeap_a.GetAddressOf());
+				//ディスクリプタヒープ＿ａをディスクリプタテーブルにセット
 				auto hCbvTbvHeap_a = CbvTbvHeap_a->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_a);
 
@@ -484,20 +484,17 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 			//モデル＿ｂの描画
 			{
 				//コンスタントバッファ０＿ｂ更新
-				//　ワールドマトリックス
-				MapConstBuf0_b->world =
-					XMMatrixTranslation(sin(radian) * radius, 0.0f, cos(radian) * radius);
-				//　ビューマトリックス
-				MapConstBuf0_b->view = MapConstBuf0_a->view;
-				//　プロジェクションマトリックス
-				MapConstBuf0_b->proj = MapConstBuf0_a->proj;
+				MapConstBuf0_b->world =	XMMatrixTranslation(
+					sin(radian) * radius, 0.0f, cos(radian) * radius);
+				MapConstBuf0_b->view = view;
+				MapConstBuf0_b->proj = proj;
 
 				//コンスタントバッファ１＿ｂ更新
 				MapConstBuf1_b->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 
-				//コマンドリストにディスクリプタヒープ＿ｂを紐づける
-				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_b);
-				//ディスクリプタテーブルにディスクリプタヒープ＿ｂをセット
+				//ディスクリプタヒープ＿ｂをコマンドリストに紐づける
+				CommandList->SetDescriptorHeaps(1, CbvTbvHeap_b.GetAddressOf());
+				//ディスクリプタヒープ＿ｂをディスクリプタテーブルにセット
 				auto hCbvTbvHeap_b = CbvTbvHeap_b->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_b);
 
