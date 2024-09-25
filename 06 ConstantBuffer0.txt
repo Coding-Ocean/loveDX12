@@ -1,33 +1,30 @@
-☆VertexShader.htmlを修正
+☆シェーダで使うヘッダ「Header.hlsli」を追加して、記述する
 cbuffer b0 : register(b0)
 {
-    matrix world;
-    matrix view;
-    matrix proj;
+    matrix Mat;
 }
 
+☆VertexShader.hlslを修正
+#include<Header.hlsli>
 float4 main( float4 pos : POSITION ) : SV_POSITION
 {
-    return mul(proj, mul(view, mul(world, pos)));
+    return mul(Mat, pos);
 }
 
-☆ヘッダ
+☆ヘッダへ追加
 #include<DirectXMath.h>
 using namespace DirectX;
 
 //コンスタントバッファ０構造体
 struct CONST_BUF0 {
-    XMMATRIX world;
-    XMMATRIX view;
-    XMMATRIX proj;
+    XMMATRIX mat;
 };
-
 //コンスタントバッファ０
 ID3D12Resource* ConstBuf0;
-CONST_BUF0* MapConstBuf0;
+CONST_BUF0* MapConstBuf0;//matを指すポインタ
 
 //ディスクリプタヒープ
-ID3D12DescriptorHeap* CbvHeap;// Const Buf View Heap
+ID3D12DescriptorHeap* CbvHeap;
 
 
 ☆リソース
@@ -68,7 +65,7 @@ ID3D12DescriptorHeap* CbvHeap;// Const Buf View Heap
 			}
 			//ディスクリプタヒープ
 			{
-				//コンスタントバッファ０の「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+				//「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
 				{
 					D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 					desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -91,7 +88,7 @@ ID3D12DescriptorHeap* CbvHeap;// Const Buf View Heap
 			}
 		}
 
-☆ルートシグニチャ
+☆ルートシグニチャの記述、追加変更
 		//ディスクリプタレンジ。ディスクリプタヒープとシェーダを紐づける役割をもつ。
 		D3D12_DESCRIPTOR_RANGE  range[1] = {};
 		UINT b0 = 0;
@@ -115,18 +112,18 @@ ID3D12DescriptorHeap* CbvHeap;// Const Buf View Heap
 		desc.NumParameters = _countof(rootParam);
 
 ☆メインループ
-			//コンスタントバッファ０更新
-			//　回転用ラジアン
+			//回転用ラジアン
 			static float radian = 0;
 			radian += 0.01f;
-			//　ワールドマトリックス
-			MapConstBuf0->world = XMMatrixRotationY(radian);
-			//　ビューマトリックス
-			XMFLOAT3 eye(0, 0, -2.0f), target(0, 0, 0), up(0, 1, 0);
-			MapConstBuf0->view = XMMatrixLookAtLH(
-				XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-			//　プロジェクションマトリックス
-			MapConstBuf0->proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
+			//ワールドマトリックス
+			XMMATRIX world = XMMatrixRotationY(radian);
+			//ビューマトリックス
+			XMVECTOR eye = { 0, 0, -2.0f }, focus = { 0, 0, 0 }, up = { 0, 1, 0 };
+			XMMATRIX view = XMMatrixLookAtLH(eye, focus, up);
+			//プロジェクションマトリックス
+			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
+			//コンスタントバッファ０更新
+			MapConstBuf0->mat = world * view * proj;
 
 			//コマンドリストにディスクリプタヒープを紐づける
 			CommandList->SetDescriptorHeaps(1, &CbvHeap);

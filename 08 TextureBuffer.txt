@@ -8,7 +8,7 @@ void main(
     out float4 o_pos : SV_POSITION,
     out float2 o_uv : TEXCOORD)
 {
-    o_pos =  mul(proj, mul(view, mul(world, i_pos)));
+    o_pos =  mul(Mat, i_pos);
     o_uv = i_uv;
 }
 
@@ -69,7 +69,8 @@ D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
 
 ☆パイプライン 
     インプットエレメント
-			slot1 = 1
+			, slot1 = 1
+
 			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, slot1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 
 ☆メインループ
@@ -82,21 +83,18 @@ D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
 ======================================================================================
 テクスチャバッファ
 
+☆シェーダヘッダ「Header.hlsli」のcbuffer b1の下に次を追加
+Texture2D<float4> Texture : register(t0); //テクスチャ0番
+SamplerState Sampler : register(s0); //サンプラ0番
+
 ☆PixelShader.hlsl
-cbuffer b1 : register(b1)
-{
-    float4 diffuse;
-}
-Texture2D<float4> tex : register(t0); //0番スロットに設定されたテクスチャ
-SamplerState smp : register(s0); //0番スロットに設定されたサンプラ
-
-
+#include<Header.hlsli>
 void main(
     in float4 i_pos : SV_POSITION,
     in float2 i_uv : TEXCOORD,
     out float4 o_col : SV_TARGET)
 {
-    o_col =  float4(tex.Sample(smp, i_uv)) * diffuse;
+    o_col =  float4(Texture.Sample(Sampler, i_uv)) * Diffuse;
 }
 
 
@@ -112,7 +110,7 @@ WinMain.h
 //テクスチャバッファ
 ID3D12Resource* TextureBuf;
 
-変数名を変える
+ディスクリプタヒープの名前を変える
 ID3D12DescriptorHeap* CbvTbvHeap;// Const Buf View と Texture Buf View の Heap
 
 
@@ -122,10 +120,9 @@ WinMain.cpp
 			//テクスチャバッファをつくる（Unified Memory Accessバージョン）
 			{
 				//ファイルを読み込み、画像データを取り出す
-				unsigned char* pixels;
-				int width, height, bytePerPixel;
-				//                       最後の引数でピクセルあたりのバイト数を強制できる↓
-				pixels = stbi_load("assets\\penguin1.png", &width, &height, &bytePerPixel, 4);
+				unsigned char* pixels = nullptr;
+				int width=0, height=0, bytePerPixel=4;
+				pixels = stbi_load("assets\\penguin1.png", &width, &height, nullptr, bytePerPixel);
 				assert(pixels != nullptr);
 
 				//テクスチャバッファ
@@ -172,7 +169,7 @@ WinMain.cpp
 　　・hCbvHeapもhCbvTbvHeapに名前変更
 
 　　・ディスクリプタの数を増やす
-					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+					desc.NumDescriptors = 3;//コンスタントバッファビュー２つとテクスチャバッファビュー１つ
 
 　　・ビューをディスクリプタヒープにつくる
 				hCbvTbvHeap.ptr += heapSize;

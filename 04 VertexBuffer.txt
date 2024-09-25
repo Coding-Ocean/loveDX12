@@ -101,7 +101,7 @@ WinMain.cpp
 
 ☆VertexShader.htmlとPixelShader.htmlをプロジェクトに新規追加
 　それぞれ出力ファイル名を　assets/%(Filename).cso に変更する！
-　Shaderフィルタを作って整理する
+　HLSLフィルタを作って整理する
 
 ☆リソースの次に追加
 {}
@@ -134,7 +134,7 @@ WinMain.cpp
 		//以下、各種記述
 
 		UINT slot0 = 0;
-		D3D12_INPUT_ELEMENT_DESC elementDescs[] = {
+		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, slot0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		};
 
@@ -177,7 +177,7 @@ WinMain.cpp
 		pipelineDesc.pRootSignature = RootSignature;
 		pipelineDesc.VS = { vs.code(), vs.size() };
 		pipelineDesc.PS = { ps.code(), ps.size() };
-		pipelineDesc.InputLayout = { elementDescs, _countof(elementDescs) };
+		pipelineDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
 		pipelineDesc.RasterizerState = rasterDesc;
 		pipelineDesc.BlendState = blendDesc;
 		pipelineDesc.DepthStencilState = depthStencilDesc;
@@ -213,18 +213,18 @@ WinMain.cpp
 		{
 			//パイプラインステートをセット
 			CommandList->SetPipelineState(PipelineState);
-			//ビューポートとシザー矩形を設定
+			//ビューポートとシザー矩形をセット
 			CommandList->RSSetViewports(1, &Viewport);
 			CommandList->RSSetScissorRects(1, &ScissorRect);
-			//ルートシグニチャ
+			//ルートシグニチャをセット
 			CommandList->SetGraphicsRootSignature(RootSignature);
 
 			//頂点をセット
-			D3D12_VERTEX_BUFFER_VIEW bufViews[] = {
+			D3D12_VERTEX_BUFFER_VIEW vertexBufViews[] = {
 				PositionBufView,
 			};
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			CommandList->IASetVertexBuffers(0, _countof(bufViews), bufViews);
+			CommandList->IASetVertexBuffers(0, _countof(vertexBufViews), vertexBufViews);
 
 			//描画
 			CommandList->DrawInstanced(3, 1, 0, 0);

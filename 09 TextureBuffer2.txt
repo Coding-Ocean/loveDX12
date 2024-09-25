@@ -4,17 +4,17 @@
 
 
 ☆ヘッダの変更
+・コンスタントバッファ１構造体をコンスタントバッファ０構造体の下まで持ってくる
 //コンスタントバッファ０構造体
 struct CONST_BUF0 {
-    XMMATRIX world;
-    XMMATRIX view;
-    XMMATRIX proj;
+    XMMATRIX mat;
 };
 //コンスタントバッファ１構造体
 struct CONST_BUF1 {
     XMFLOAT4 diffuse;
 };
 
+・２つのモデルを表示するには、以下の記述が２セット必要。（コンスタントバッファは使いまわしできない！）
 //モデル＿ａ------------------------
 //コンスタントバッファ０＿ａ
 ID3D12Resource* ConstBuf0_a;
@@ -112,10 +112,9 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 			//テクスチャバッファ_aをつくる(Unified Memory Accessバージョン)
 			{
 				//ファイルを読み込み、画像データを取り出す
-				unsigned char* pixels;
-				int width, height, bpp;
-				//                       最後の引数でピクセルあたりのバイト数を強制できる↓
-				pixels = stbi_load("assets\\penguin1.png", &width, &height, &bpp, 4);
+				unsigned char* pixels = nullptr;
+				int width=0, height=0, bytePerPixel=4;
+				pixels = stbi_load("assets\\penguin1.png", &width, &height, nullptr, bytePerPixel);
 				assert(pixels != nullptr);
 
 				//テクスチャバッファ
@@ -149,8 +148,8 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				Hr = TextureBuf_a->WriteToSubresource(0,
 					nullptr, // 全領域へコピー 
 					pixels, // 元データアドレス 
-					width * bpp, // 1ラインサイズ 
-					width * height * bpp // 全サイズ
+					width * bytePerPixel, // 1ラインサイズ 
+					width * height * bytePerPixel // 全サイズ
 				);
 
 				//生データ開放
@@ -272,10 +271,9 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 			//テクスチャバッファ_bをつくる(Microsoft推奨 Direct Memory Accessバージョン)
 			{
 				//ファイルを読み込み、生データを取り出す
-				unsigned char* pixels;
-				int width, height, bytePerPixel;
-				//						         最後の引数でピクセルあたりのバイト数を強制できる↓
-				pixels = stbi_load("assets\\penguin2.png", &width, &height, &bytePerPixel, 4);
+				unsigned char* pixels = nullptr;
+				int width=0, height=0, bytePerPixel=4;
+				pixels = stbi_load("assets\\penguin2.png", &width, &height, nullptr, bytePerPixel);
 				assert(pixels != nullptr);
 
 				//１行のピッチを256の倍数にしておく(バッファサイズは256の倍数でなければいけない)
@@ -452,52 +450,55 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 
 
 ☆ループ中の変更
-			//回転用ラジアン
+
+			//共有データ
+			//　回転用ラジアン
 			static float radian = 0;
 			float radius = 0.4f;
 			radian += 0.02f;
-			//ビューマトリックス
+			//　ビューマトリックス
 			XMVECTOR eye = { 0, 0, -2 }, focus = { 0, 0, 0 }, up = { 0, 1, 0 };
 			XMMATRIX view = XMMatrixLookAtLH(eye, focus, up);
-			//プロジェクションマトリックス
+			//　プロジェクションマトリックス
 			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
+
+			//モデル＿ａの更新
+			{
+			//　コンスタントバッファ０＿ａ更新
+			XMMATRIX world = XMMatrixTranslation(-sin(radian) * radius, 0.0f, -cos(radian) * radius);
+			MapConstBuf0_a->mat = world * view * proj;
+			//　コンスタントバッファ１＿ａ更新
+			MapConstBuf1_a->diffuse = { 1.0f,1.0f,1.0f,1.0f };
+			}
+			//モデル＿ｂの更新
+			{
+			//　コンスタントバッファ０＿ｂ更新
+			XMMATRIX world = XMMatrixTranslation(sin(radian) * radius, 0.0f, cos(radian) * radius);
+			MapConstBuf0_b->mat = world * view * proj;
+			//　コンスタントバッファ１＿ｂ更新
+			MapConstBuf1_b->diffuse = { 1.0f,1.0f,1.0f,1.0f };
+			}
+
+
+
+
 			//モデル＿ａの描画
 			{
-				//コンスタントバッファ０＿ａ更新
-				MapConstBuf0_a->world =	XMMatrixTranslation(
-					-sin(radian) * radius, 0.0f, -cos(radian) * radius);
-				MapConstBuf0_a->view = view;
-				MapConstBuf0_a->proj = proj;
-
-				//コンスタントバッファ１＿ａ更新
-				MapConstBuf1_a->diffuse = { 1.0f,1.0f,1.0f,1.0f };
-
 				//ディスクリプタヒープ＿ａをコマンドリストに紐づける
-				CommandList->SetDescriptorHeaps(1, CbvTbvHeap_a.GetAddressOf());
+				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_a);
 				//ディスクリプタヒープ＿ａをディスクリプタテーブルにセット
 				auto hCbvTbvHeap_a = CbvTbvHeap_a->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_a);
-
 				//描画
 				CommandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 			}
 			//モデル＿ｂの描画
 			{
-				//コンスタントバッファ０＿ｂ更新
-				MapConstBuf0_b->world =	XMMatrixTranslation(
-					sin(radian) * radius, 0.0f, cos(radian) * radius);
-				MapConstBuf0_b->view = view;
-				MapConstBuf0_b->proj = proj;
-
-				//コンスタントバッファ１＿ｂ更新
-				MapConstBuf1_b->diffuse = { 1.0f,1.0f,1.0f,1.0f };
-
 				//ディスクリプタヒープ＿ｂをコマンドリストに紐づける
-				CommandList->SetDescriptorHeaps(1, CbvTbvHeap_b.GetAddressOf());
+				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_b);
 				//ディスクリプタヒープ＿ｂをディスクリプタテーブルにセット
 				auto hCbvTbvHeap_b = CbvTbvHeap_b->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_b);
-
 				//描画
 				CommandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 			}

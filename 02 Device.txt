@@ -17,7 +17,8 @@ ID3D12CommandQueue* CommandQueue;
 ID3D12Fence* Fence;
 HANDLE FenceEvent;
 UINT64 FenceValue;
-
+//デバッグ
+HRESULT Hr;
 
 ===============================================================================================
 WinMain.cpp

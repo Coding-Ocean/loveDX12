@@ -13,8 +13,8 @@ void WaitDrawDone();
 IDXGISwapChain4* SwapChain;
 ID3D12Resource* BackBufs[2];
 UINT BackBufIdx;
-ID3D12DescriptorHeap* BackBufViewHeap;
-UINT BackBufViewHeapSize;
+ID3D12DescriptorHeap* BbvHeap;//"Bbv"は"BackBufView"の略
+UINT BbvHeapSize;
 
 
 ===============================================================================================
@@ -39,16 +39,16 @@ WinMain.cpp
 			desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 			desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 			desc.SampleDesc.Count = 1;
-			IDXGISwapChain1* swapChain;
+			IDXGISwapChain1* swapChain1;
 			Hr = dxgiFactory->CreateSwapChainForHwnd(
-				CommandQueue, HWnd, &desc, nullptr, nullptr, &swapChain);
+				CommandQueue, HWnd, &desc, nullptr, nullptr, &swapChain1);
 			assert(SUCCEEDED(Hr));
 
 			//IDXGISwapChain4インターフェイスをサポートしているか尋ねる
-			Hr = swapChain->QueryInterface(IID_PPV_ARGS(&SwapChain));
+			Hr = swapChain1->QueryInterface(IID_PPV_ARGS(&SwapChain));
 			assert(SUCCEEDED(Hr));
 
-			swapChain->Release();
+			swapChain1->Release();
 			dxgiFactory->Release();
 		}
 		//バックバッファ「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
@@ -57,15 +57,15 @@ WinMain.cpp
 			desc.NumDescriptors = 2;//バックバッファビュー２つ
 			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//RenderTargetView
 			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;//シェーダからアクセスしないのでNONEでOK
-			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&BackBufViewHeap));
+			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&BbvHeap));
 			assert(SUCCEEDED(Hr));
 		}
 		//バックバッファ「ビュー」を「ディスクリプタヒープ」につくる
 		{
 			D3D12_CPU_DESCRIPTOR_HANDLE hBbvHeap
-				= BackBufViewHeap->GetCPUDescriptorHandleForHeapStart();
+				= BbvHeap->GetCPUDescriptorHandleForHeapStart();
 
-			BackBufViewHeapSize
+			BbvHeapSize
 				= Device->GetDescriptorHandleIncrementSize(
 					D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -74,7 +74,7 @@ WinMain.cpp
 				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBufs[idx]));
 				assert(SUCCEEDED(Hr));
 				//バックバッファのビューをヒープにつくる
-				hBbvHeap.ptr += idx * BackBufViewHeapSize;
+				hBbvHeap.ptr += idx * BbvHeapSize;
 				Device->CreateRenderTargetView(BackBufs[idx], nullptr, hBbvHeap);
 			}
 		}
@@ -87,19 +87,19 @@ WinMain.cpp
 			//現在のバックバッファのインデックスを取得。このプログラムの場合0 or 1になる。
 			BackBufIdx = SwapChain->GetCurrentBackBufferIndex();
 
-			//バックバッファが描画ターゲットとして使用できるようになるまで待つ
+			//バリアでバックバッファを描画ターゲットに切り替える
 			D3D12_RESOURCE_BARRIER barrier;
-			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//リソースの状態遷移に対してバリアを設置
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースは描画ターゲット
+			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;//遷移前はPresent
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移後は描画ターゲット
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 			CommandList->ResourceBarrier(1, &barrier);
 
-			//バックバッファのディスクリプタハンドルを用意する
-			auto hBbvHeap = BackBufViewHeap->GetCPUDescriptorHandleForHeapStart();
-			hBbvHeap.ptr += BackBufIdx * BackBufViewHeapSize;
+			//バックバッファの場所を指すディスクリプタヒープハンドルを用意する
+			auto hBbvHeap = BbvHeap->GetCPUDescriptorHandleForHeapStart();
+			hBbvHeap.ptr += BackBufIdx * BbvHeapSize;
 			//バックバッファを描画ターゲットとして設定する
 			CommandList->OMSetRenderTargets(1, &hBbvHeap, false, nullptr);
 			//描画ターゲットをクリアする
@@ -114,11 +114,11 @@ WinMain.cpp
 
 		//バックバッファを表示
 		{
-			//バックバッファの描画完了を待つためのバリアを設置
+			//バリアでバックバッファを表示用に切り替える
 			D3D12_RESOURCE_BARRIER barrier;
-			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//バリアをリソースの状態遷移に対して設置
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースは描画ターゲット
+			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移前は描画ターゲット
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;//遷移後はPresent
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -131,6 +131,9 @@ WinMain.cpp
 			CommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 			//描画完了を待つ
 			WaitDrawDone();
+
+			//バックバッファを表示
+			SwapChain->Present(1, 0);
 			
 			//コマンドアロケータをリセット
 			Hr = CommandAllocator->Reset();
@@ -138,16 +141,13 @@ WinMain.cpp
 			//コマンドリストをリセット
 			Hr = CommandList->Reset(CommandAllocator, nullptr);
 			assert(SUCCEEDED(Hr));
-
-			//バックバッファを表示
-			SwapChain->Present(1, 0);
 		}
 
 
 ☆解放
 		WaitDrawDone();
 
-		BackBufViewHeap->Release();
+		BbvHeap->Release();
 		BackBufs[0]->Release();
 		BackBufs[1]->Release();
 		SwapChain->Release();
