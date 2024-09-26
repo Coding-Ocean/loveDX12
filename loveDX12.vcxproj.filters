@@ -18,4 +18,11 @@
     <Text Include="10 DepthStencilBuffer.txt" />
     <Text Include="09 TextureBuffer2.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Header.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="PixelShader.hlsl" />
+    <FxCompile Include="VertexShader.hlsl" />
+  </ItemGroup>
 </Project>
