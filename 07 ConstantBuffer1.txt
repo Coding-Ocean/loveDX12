@@ -12,13 +12,12 @@ float4 main() : SV_TARGET
 }
 
 ☆ヘッダ
-//コンスタントバッファ１構造体
+//コンスタントバッファ１
 struct CONST_BUF1 {
     XMFLOAT4 diffuse;
 };
-//コンスタントバッファ１
+CONST_BUF1* MappedConstBuf1;
 ID3D12Resource* ConstBuf1;
-CONST_BUF1* MapConstBuf1;
 
 
 ☆リソース
@@ -59,7 +58,7 @@ CONST_BUF1* MapConstBuf1;
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf1->Map(0, nullptr, (void**)&MapConstBuf1);
+				Hr = ConstBuf1->Map(0, nullptr, (void**)&MappedConstBuf1);
 				assert(SUCCEEDED(Hr));
 			}
     ---ここまでを追加---
@@ -121,7 +120,7 @@ CONST_BUF1* MapConstBuf1;
 ☆メインループ
 			//コンスタントバッファ１を更新
 			float col = cos(radian) * 0.5f + 0.5f;
-			MapConstBuf1->diffuse = { col,1.0f,0.0f,1.0f };
+			MappedConstBuf1->diffuse = { col,1.0f,0.0f,1.0f };
 
 ☆解放
 		CbvHeap->Release();

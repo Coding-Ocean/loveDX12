@@ -15,13 +15,12 @@ float4 main( float4 pos : POSITION ) : SV_POSITION
 #include<DirectXMath.h>
 using namespace DirectX;
 
-//コンスタントバッファ０構造体
+//コンスタントバッファ０
 struct CONST_BUF0 {
     XMMATRIX mat;
 };
-//コンスタントバッファ０
+CONST_BUF0* MappedConstBuf0;
 ID3D12Resource* ConstBuf0;
-CONST_BUF0* MapConstBuf0;//matを指すポインタ
 
 //ディスクリプタヒープ
 ID3D12DescriptorHeap* CbvHeap;
@@ -60,7 +59,7 @@ ID3D12DescriptorHeap* CbvHeap;
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf0->Map(0, nullptr, (void**)&MapConstBuf0);
+				Hr = ConstBuf0->Map(0, nullptr, (void**)&MappedConstBuf0);
 				assert(SUCCEEDED(Hr));
 			}
 			//ディスクリプタヒープ
@@ -123,7 +122,7 @@ ID3D12DescriptorHeap* CbvHeap;
 			//プロジェクションマトリックス
 			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
 			//コンスタントバッファ０更新
-			MapConstBuf0->mat = world * view * proj;
+			MappedConstBuf0->mat = world * view * proj;
 
 			//コマンドリストにディスクリプタヒープを紐づける
 			CommandList->SetDescriptorHeaps(1, &CbvHeap);

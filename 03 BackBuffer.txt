@@ -55,7 +55,7 @@ WinMain.cpp
 		{
 			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 			desc.NumDescriptors = 2;//バックバッファビュー２つ
-			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//RenderTargetView
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//バックバッファビューのディスクリプタヒープとして使う
 			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;//シェーダからアクセスしないのでNONEでOK
 			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&BbvHeap));
 			assert(SUCCEEDED(Hr));
@@ -73,7 +73,7 @@ WinMain.cpp
 				//バックバッファを取り出す
 				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBufs[idx]));
 				assert(SUCCEEDED(Hr));
-				//バックバッファのビューをヒープにつくる
+				//バックバッファのビューをディスクリプタヒープにつくる
 				hBbvHeap.ptr += idx * BbvHeapSize;
 				Device->CreateRenderTargetView(BackBufs[idx], nullptr, hBbvHeap);
 			}

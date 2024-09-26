@@ -55,16 +55,16 @@ D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
 			assert(SUCCEEDED(Hr));
 
 			//テクスチャ座標バッファに生データをコピー
-			UINT8* mappedBuf;
-			Hr = TexcoordBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
+			UINT8* mappedTexcoordBuf;
+			Hr = TexcoordBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedTexcoordBuf));
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, texcoords, sizeof(texcoords));
+			memcpy(mappedTexcoordBuf, texcoords, sizeof(texcoords));
 			TexcoordBuf->Unmap(0, nullptr);
 
 			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
 			TexcoordBufView.BufferLocation = TexcoordBuf->GetGPUVirtualAddress();
-			TexcoordBufView.SizeInBytes = sizeof(texcoords);
-			TexcoordBufView.StrideInBytes = sizeof(float) * 2;
+			TexcoordBufView.SizeInBytes = sizeof(texcoords);//全バイト数
+			TexcoordBufView.StrideInBytes = sizeof(float) * 2;//１頂点のバイト数
 		}
 
 ☆パイプライン 
@@ -171,7 +171,7 @@ WinMain.cpp
 　　・ディスクリプタの数を増やす
 					desc.NumDescriptors = 3;//コンスタントバッファビュー２つとテクスチャバッファビュー１つ
 
-　　・ビューをディスクリプタヒープにつくる
+　　・ビューをディスクリプタヒープにつくる（コンスタントバッファ１のビューを作った後に追加）
 				hCbvTbvHeap.ptr += heapSize;
 				
 				//テクスチャバッファの「ビュー」を「ディスクリプタヒープ」につくる

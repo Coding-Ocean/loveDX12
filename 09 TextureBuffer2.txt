@@ -15,29 +15,21 @@ struct CONST_BUF1 {
 };
 
 ・２つのモデルを表示するには、以下の記述が２セット必要。（コンスタントバッファは使いまわしできない！）
-//モデル＿ａ------------------------
-//コンスタントバッファ０＿ａ
+//メッシュ_a------------------------
+CONST_BUF0* MappedConstBuf0_a;
+CONST_BUF1* MappedConstBuf1_a;
 ID3D12Resource* ConstBuf0_a;
-CONST_BUF0* MapConstBuf0_a;
-//コンスタントバッファ１＿ａ
 ID3D12Resource* ConstBuf1_a;
-CONST_BUF1* MapConstBuf1_a;
-//テクスチャバッファ＿ａ
 ID3D12Resource* TextureBuf_a;
-//ディスクリプタヒープ＿ａ
-ID3D12DescriptorHeap* CbvTbvHeap_a;// Const Buf View と Texture Buf View の Heap
+ID3D12DescriptorHeap* CbvTbvHeap_a;
 
-//モデル＿ｂ------------------------
-//コンスタントバッファ０＿ｂ
+//メッシュ_b------------------------
+CONST_BUF0* MappedConstBuf0_b;
+CONST_BUF1* MappedConstBuf1_b;
 ID3D12Resource* ConstBuf0_b;
-CONST_BUF0* MapConstBuf0_b;
-//コンスタントバッファ１＿ｂ
 ID3D12Resource* ConstBuf1_b;
-CONST_BUF1* MapConstBuf1_b;
-//テクスチャバッファ＿ｂ
 ID3D12Resource* TextureBuf_b;
-//ディスクリプタヒープ＿ｂ
-ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
+ID3D12DescriptorHeap* CbvTbvHeap_b;
 
 
 ☆リソースの変更
@@ -73,7 +65,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf0_a->Map(0, nullptr, (void**)&MapConstBuf0_a);
+				Hr = ConstBuf0_a->Map(0, nullptr, (void**)&MappedConstBuf0_a);
 				assert(SUCCEEDED(Hr));
 			}
 			//コンスタントバッファ１_aをつくる
@@ -106,7 +98,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf1_a->Map(0, nullptr, (void**)&MapConstBuf1_a);
+				Hr = ConstBuf1_a->Map(0, nullptr, (void**)&MappedConstBuf1_a);
 				assert(SUCCEEDED(Hr));
 			}
 			//テクスチャバッファ_aをつくる(Unified Memory Accessバージョン)
@@ -125,13 +117,13 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				prop.CreationNodeMask = 0;//単一アダプタのため0
 				prop.VisibleNodeMask = 0;//単一アダプタのため0
 				D3D12_RESOURCE_DESC desc = {};
-				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
 				desc.Width = width;
 				desc.Height = height;
 				desc.DepthOrArraySize = 1;
-				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
 				desc.MipLevels = 1;
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
+				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
+				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
 				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
 				desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
 				Hr = Device->CreateCommittedResource(
@@ -155,13 +147,13 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				//生データ開放
 				stbi_image_free(pixels);
 			}
-			//ディスクリプタヒープ_a、そしてビューをつくる
+			//ディスクリプタヒープ_aを用意し、そこに３つのビューをつくる
 			{
-				//コンスタントバッファ０と１の「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+				//「ビュー」の入れ物である「ディスクリプタヒープ_a」をつくる
 				{
 					D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 					desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+					desc.NumDescriptors = 3;//コンスタントバッファビュー２つとテクスチャバッファビュー１つ
 					desc.NodeMask = 0;
 					desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 					Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap_a));
@@ -171,7 +163,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				auto hCbvTbvHeap_a = CbvTbvHeap_a->GetCPUDescriptorHandleForHeapStart();
 				auto heapSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-				//コンスタントバッファ０の「ビュー」を「ディスクリプタヒープ」につくる
+				//コンスタントバッファ０_aの「ビュー」を「ディスクリプタヒープ_a」につくる
 				{
 					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
 					desc.BufferLocation = ConstBuf0_a->GetGPUVirtualAddress();
@@ -181,7 +173,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 
 				hCbvTbvHeap_a.ptr += heapSize;
 
-				//コンスタントバッファ１の「ビュー」を「ディスクリプタヒープ」につくる
+				//コンスタントバッファ１_aの「ビュー」を「ディスクリプタヒープ_a」につくる
 				{
 					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
 					desc.BufferLocation = ConstBuf1_a->GetGPUVirtualAddress();
@@ -191,7 +183,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 
 				hCbvTbvHeap_a.ptr += heapSize;
 				
-				//ディスクリプタヒープにテクスチャバッファのビューをつくる
+				//テクスチャバッファ_aの「ビュー」を「ディスクリプタヒープ_a」につくる
 				{
 					D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 					desc.Format = TextureBuf_a->GetDesc().Format;
@@ -233,7 +225,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf0_b->Map(0, nullptr, (void**)&MapConstBuf0_b);
+				Hr = ConstBuf0_b->Map(0, nullptr, (void**)&MappedConstBuf0_b);
 				assert(SUCCEEDED(Hr));
 			}
 			//コンスタントバッファ１_bをつくる
@@ -265,7 +257,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				assert(SUCCEEDED(Hr));
 
 				//マップしておいて、メインループ中で更新する。
-				Hr = ConstBuf1_b->Map(0, nullptr, (void**)&MapConstBuf1_b);
+				Hr = ConstBuf1_b->Map(0, nullptr, (void**)&MappedConstBuf1_b);
 				assert(SUCCEEDED(Hr));
 			}
 			//テクスチャバッファ_bをつくる(Microsoft推奨 Direct Memory Accessバージョン)
@@ -400,13 +392,13 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				uploadBuf->Release();
 				stbi_image_free(pixels);
 			}{}
-			//ディスクリプタヒープ_bをつくり、そこにビューをつくる
+			//ディスクリプタヒープ_bをつくり、そこに３つのビューをつくる
 			{
 				//「ビュー」の入れ物である「ディスクリプタヒープ_b」をつくる
 				{
 					D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 					desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+					desc.NumDescriptors = 3;//コンスタントバッファビュー２つとテクスチャバッファビュー１つ
 					desc.NodeMask = 0;
 					desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 					Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap_b));
@@ -462,27 +454,27 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 			//　プロジェクションマトリックス
 			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 10.0f);
 
-			//モデル＿ａの更新
+			//メッシュ_aの更新
 			{
 			//　コンスタントバッファ０＿ａ更新
 			XMMATRIX world = XMMatrixTranslation(-sin(radian) * radius, 0.0f, -cos(radian) * radius);
-			MapConstBuf0_a->mat = world * view * proj;
+			MappedConstBuf0_a->mat = world * view * proj;
 			//　コンスタントバッファ１＿ａ更新
-			MapConstBuf1_a->diffuse = { 1.0f,1.0f,1.0f,1.0f };
+			MappedConstBuf1_a->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 			}
-			//モデル＿ｂの更新
+			//メッシュ_bの更新
 			{
 			//　コンスタントバッファ０＿ｂ更新
 			XMMATRIX world = XMMatrixTranslation(sin(radian) * radius, 0.0f, cos(radian) * radius);
-			MapConstBuf0_b->mat = world * view * proj;
+			MappedConstBuf0_b->mat = world * view * proj;
 			//　コンスタントバッファ１＿ｂ更新
-			MapConstBuf1_b->diffuse = { 1.0f,1.0f,1.0f,1.0f };
+			MappedConstBuf1_b->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 			}
 
 
 
 
-			//モデル＿ａの描画
+			//メッシュ_aの描画
 			{
 				//ディスクリプタヒープ＿ａをコマンドリストに紐づける
 				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_a);
@@ -492,7 +484,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;// Const Buf View と Texture Buf View の Heap
 				//描画
 				CommandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 			}
-			//モデル＿ｂの描画
+			//メッシュ_bの描画
 			{
 				//ディスクリプタヒープ＿ｂをコマンドリストに紐づける
 				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_b);

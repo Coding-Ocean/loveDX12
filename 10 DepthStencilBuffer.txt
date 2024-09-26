@@ -38,7 +38,7 @@ ID3D12DescriptorHeap* DsvHeap;//"Dsv"は"DepthStencilBufView"の略
 		{
 			D3D12_DESCRIPTOR_HEAP_DESC desc = {};//深度に使うよという事がわかればいい
 			desc.NumDescriptors = 1;//深度ビュー1つのみ
-			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;//デプスステンシルビューとして使う
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;//デプスステンシルビューのディスクリプタヒープ
 			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&DsvHeap));
 			assert(SUCCEEDED(Hr));

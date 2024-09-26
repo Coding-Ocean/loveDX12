@@ -54,16 +54,16 @@ WinMain.cpp
 			assert(SUCCEEDED(Hr));
 
 			//作ったバッファにデータをコピー
-			UINT8* mappedBuf = nullptr;
-			Hr = IndexBuf->Map(0, nullptr, (void**)&mappedBuf);
+			UINT8* mappedIndexBuf = nullptr;
+			Hr = IndexBuf->Map(0, nullptr, (void**)&mappedIndexBuf);
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, indices, sizeof(indices));
+			memcpy(mappedIndexBuf, indices, sizeof(indices));
 			IndexBuf->Unmap(0, nullptr);
 
-			//インデックスバッファビューをつくる
+			//インデックスバッファビューをつくる（ディスクリプタヒープに作らなくてよい）
 			IndexBufView.BufferLocation = IndexBuf->GetGPUVirtualAddress();
+			IndexBufView.SizeInBytes = sizeof(indices);//全バイト数
 			IndexBufView.Format = DXGI_FORMAT_R16_UINT;
-			IndexBufView.SizeInBytes = sizeof(indices);
 		}
 
 ☆バックバッファへ描画に追加、変更

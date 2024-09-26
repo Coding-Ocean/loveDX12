@@ -87,16 +87,16 @@ WinMain.cpp
 			assert(SUCCEEDED(Hr));
 
 			//位置バッファに生データをコピー
-			UINT8* mappedBuf;
-			Hr = PositionBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
+			UINT8* mappedPositionBuf;
+			Hr = PositionBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedPositionBuf));
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, positions, sizeof(positions));
+			memcpy(mappedPositionBuf, positions, sizeof(positions));
 			PositionBuf->Unmap(0, nullptr);
 
 			//位置バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
 			PositionBufView.BufferLocation = PositionBuf->GetGPUVirtualAddress();
-			PositionBufView.SizeInBytes = sizeof(positions);
-			PositionBufView.StrideInBytes = sizeof(float) * 3;
+			PositionBufView.SizeInBytes = sizeof(positions);//全バイト数
+			PositionBufView.StrideInBytes = sizeof(float) * 3;//１頂点のバイト数
 		}
 
 ☆VertexShader.htmlとPixelShader.htmlをプロジェクトに新規追加
