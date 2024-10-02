@@ -194,7 +194,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 
 		//３Dモデルのテキストデータを開く
-		std::ifstream file("assets\\plane\\plane.txt");
+		std::ifstream file("assets\\kame\\kame.txt");
 		assert(!file.fail());
 
 		std::string dataType;
@@ -783,7 +783,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			//回転用ラジアン
 			static float radian = 0;
 			float radius = 0.4f;
-			radian += 0.02f;
+			radian += 0.01f;
 
 			//ワールドマトリックス
 			XMMATRIX world = XMMatrixRotationY(radian);
@@ -793,9 +793,9 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			//プロジェクションマトリックス
 			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 21.0f);
 
-			//コンスタントバッファ０＿ｂ更新
+			//コンスタントバッファ０更新
 			MapConstBuf0->mat = world * view * proj;
-			//コンスタントバッファ１＿ｂ更新
+			//コンスタントバッファ１更新
 			MapConstBuf1->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 		}
 		//バックバッファをクリア
@@ -844,9 +844,9 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			CommandList->IASetVertexBuffers(0, _countof(vertexBufViews), vertexBufViews);
 
-			//ディスクリプタヒープをコマンドリストに紐づける
+			//ディスクリプタヒープをGPUにセット。まだ、シェーダと紐づいていない。
 			CommandList->SetDescriptorHeaps(1, &CbvTbvHeap);
-			//ディスクリプタヒープをディスクリプタテーブルにセット
+			//ディスクリプタヒープをディスクリプタテーブルにセット。シェーダと紐づく。
 			CommandList->SetGraphicsRootDescriptorTable(0, CbvTbvHeap->GetGPUDescriptorHandleForHeapStart());
 #if 1
 			//描画。インデックスを使用しない

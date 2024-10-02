@@ -476,9 +476,9 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 
 			//メッシュ_aの描画
 			{
-				//ディスクリプタヒープ＿ａをコマンドリストに紐づける
+				//ディスクリプタヒープ＿ａをGPUにセット。まだ、シェーダと紐づいていない。
 				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_a);
-				//ディスクリプタヒープ＿ａをディスクリプタテーブルにセット
+				//ディスクリプタヒープ＿ａをディスクリプタテーブルにセット。シェーダと紐づく。
 				auto hCbvTbvHeap_a = CbvTbvHeap_a->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_a);
 				//描画
@@ -486,9 +486,9 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 			}
 			//メッシュ_bの描画
 			{
-				//ディスクリプタヒープ＿ｂをコマンドリストに紐づける
+				//ディスクリプタヒープ＿ｂをGPUにセット。まだ、シェーダと紐づいていない。
 				CommandList->SetDescriptorHeaps(1, &CbvTbvHeap_b);
-				//ディスクリプタヒープ＿ｂをディスクリプタテーブルにセット
+				//ディスクリプタヒープ＿ｂをディスクリプタテーブルにセット。シェーダと紐づく。
 				auto hCbvTbvHeap_b = CbvTbvHeap_b->GetGPUDescriptorHandleForHeapStart();
 				CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap_b);
 				//描画
