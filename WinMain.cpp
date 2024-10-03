@@ -194,7 +194,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 
 		//３Dモデルのテキストデータを開く
-		std::ifstream file("assets\\kame\\kame.txt");
+		std::ifstream file("assets\\plane\\plane.txt");
 		assert(!file.fail());
 
 		std::string dataType;
