@@ -157,7 +157,7 @@ WinMain.cpp
 // 描画完了を待つ
 void WaitDrawDone()
 {
-	//現在のFence値がコマンド終了後にFenceに書き込まれるようにする
+	//fvalueがコマンド終了後にFenceに書き込まれるようにする
 	UINT64 fvalue = FenceValue;
 	CommandQueue->Signal(Fence, fvalue);
 	FenceValue++;
@@ -165,9 +165,9 @@ void WaitDrawDone()
 	//まだコマンドキューが終了していないことを確認する
 	if (Fence->GetCompletedValue() < fvalue)
 	{
-		//このFenceにおいて、fvalue の値になったらイベントを発生させる
+		//Fenceがfvalueの値になったら終了を通知するイベントを発生させる
 		Fence->SetEventOnCompletion(fvalue, FenceEvent);
-		//イベントが発生するまで待つ
+		//終了通知イベントが発生するまで待つ
 		WaitForSingleObject(FenceEvent, INFINITE);
 	}
 }
