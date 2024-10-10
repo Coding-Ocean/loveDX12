@@ -99,7 +99,7 @@ WinMain.cpp
 			PositionBufView.StrideInBytes = sizeof(float) * 3;//１頂点のバイト数
 		}
 
-☆VertexShader.htmlとPixelShader.htmlをプロジェクトに新規追加
+☆VertexShader.hlslとPixelShader.hlslをプロジェクトに新規追加
 　それぞれ出力ファイル名を　assets/%(Filename).cso に変更する！
 　HLSLフィルタを作って整理する
 
