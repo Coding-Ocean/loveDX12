@@ -51,7 +51,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				desc.DepthOrArraySize = 1;
 				desc.MipLevels = 1;
 				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
+				desc.SampleDesc.Count = 1;
 				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
@@ -84,7 +84,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				desc.DepthOrArraySize = 1;
 				desc.MipLevels = 1;
 				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
+				desc.SampleDesc.Count = 1;
 				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
@@ -114,18 +114,19 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				prop.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定。defaultでもuploadでもなく
 				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
 				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
-				prop.CreationNodeMask = 0;//単一アダプタのため0
-				prop.VisibleNodeMask = 0;//単一アダプタのため0
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
 				D3D12_RESOURCE_DESC desc = {};
 				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
+				desc.Alignment = 0;
 				desc.Width = width;
 				desc.Height = height;
 				desc.DepthOrArraySize = 1;
 				desc.MipLevels = 1;
 				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
 				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
-				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
 					&prop,
 					D3D12_HEAP_FLAG_NONE,//特に指定なし
@@ -212,7 +213,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				desc.DepthOrArraySize = 1;
 				desc.MipLevels = 1;
 				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
+				desc.SampleDesc.Count = 1;
 				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
@@ -244,7 +245,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				desc.DepthOrArraySize = 1;
 				desc.MipLevels = 1;
 				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
+				desc.SampleDesc.Count = 1;
 				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
@@ -279,19 +280,19 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 					prop.Type = D3D12_HEAP_TYPE_UPLOAD;
 					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-					prop.CreationNodeMask = 0;
-					prop.VisibleNodeMask = 0;
+					prop.CreationNodeMask = 1;
+					prop.VisibleNodeMask = 1;
 					D3D12_RESOURCE_DESC desc = {};
 					desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-					desc.Format = DXGI_FORMAT_UNKNOWN;
+					desc.Alignment = 0;
 					desc.Width = alignedRowPitch * height;
 					desc.Height = 1;
 					desc.DepthOrArraySize = 1;
 					desc.MipLevels = 1;
-					desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;//連続したデータですよ
-					desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+					desc.Format = DXGI_FORMAT_UNKNOWN;
 					desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
-					desc.SampleDesc.Quality = 0;
+					desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+					desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 					Hr = Device->CreateCommittedResource(
 						&prop,
 						D3D12_HEAP_FLAG_NONE,
@@ -321,18 +322,19 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 					prop.Type = D3D12_HEAP_TYPE_DEFAULT;
 					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-					prop.CreationNodeMask = 0;
-					prop.VisibleNodeMask = 0;
+					prop.CreationNodeMask = 1;
+					prop.VisibleNodeMask = 1;
 					D3D12_RESOURCE_DESC desc = {};
-					desc.MipLevels = 1;
-					desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+					desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					desc.Alignment = 0;
 					desc.Width = width;
 					desc.Height = height;
-					desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 					desc.DepthOrArraySize = 1;
+					desc.MipLevels = 1;
+					desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 					desc.SampleDesc.Count = 1;
-					desc.SampleDesc.Quality = 0;
-					desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+					desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 					Hr = Device->CreateCommittedResource(
 						&prop,
 						D3D12_HEAP_FLAG_NONE,
@@ -362,7 +364,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 
 				//コマンドリストでコピーを予約しますよ！！！
 				CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-				//ってことはバリアがいるのです
+				//コピー先からテクスチャリソースに切り替える
 				D3D12_RESOURCE_BARRIER barrier = {};
 				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -371,7 +373,7 @@ ID3D12DescriptorHeap* CbvTbvHeap_b;
 				barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 				barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				CommandList->ResourceBarrier(1, &barrier);
-				//uploadBufアンロード
+				//uploadBufの内容を破棄する
 				CommandList->DiscardResource(uploadBuf, nullptr);
 				//コマンドリストを閉じて
 				CommandList->Close();

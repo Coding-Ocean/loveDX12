@@ -130,21 +130,22 @@ WinMain.cpp
 				prop.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定。defaultでもuploadでもない
 				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
 				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
-				prop.CreationNodeMask = 0;//単一アダプタのため0
-				prop.VisibleNodeMask = 0;//単一アダプタのため0
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
 				D3D12_RESOURCE_DESC desc = {};
-				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
+				desc.Alignment = 0;
 				desc.Width = width;
 				desc.Height = height;
 				desc.DepthOrArraySize = 1;
-				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
 				desc.MipLevels = 1;
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;//2Dテクスチャ用
-				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//RGBAフォーマット
+				desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
+				desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 				Hr = Device->CreateCommittedResource(
 					&prop,
-					D3D12_HEAP_FLAG_NONE,//特に指定なし
+					D3D12_HEAP_FLAG_NONE,
 					&desc,
 					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,//テクスチャ用(ピクセルシェーダから見る用)
 					nullptr,
