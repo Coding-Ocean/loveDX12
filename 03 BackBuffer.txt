@@ -62,13 +62,14 @@ WinMain.cpp
 		}
 		//バックバッファ「ビュー」を「ディスクリプタヒープ」につくる
 		{
+			//ポインタ(ここではハンドル)にディスクリプタヒープの先頭アドレスを取得しておく
 			D3D12_CPU_DESCRIPTOR_HANDLE hBbvHeap
 				= BbvHeap->GetCPUDescriptorHandleForHeapStart();
-
+			//ディスクリプタのサイズを取得する（アドレスをずらしてディスクリプタを指すために使う）
 			BbvHeapSize
 				= Device->GetDescriptorHandleIncrementSize(
 					D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
+			//ポインタ(ハンドル)をずらしながら、ビューをディスクリプタヒープにつくる
 			for (UINT idx = 0; idx < 2; idx++) {
 				//バックバッファを取り出す
 				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBufs[idx]));
