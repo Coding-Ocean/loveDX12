@@ -58,25 +58,28 @@ ID3D12Resource* PositionBuf;
 D3D12_VERTEX_BUFFER_VIEW PositionBufView;
 ID3D12Resource* TexcoordBuf;
 D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
-UINT NumVertices;
 //頂点インデックスバッファ
 ID3D12Resource* IndexBuf;
 D3D12_INDEX_BUFFER_VIEW	IndexBufView;
-UINT NumIndices;
 
-//コンスタントバッファ、テクスチャバッファ
+//コンスタントバッファ、テクスチャバッファのディスクリプタヒープ
+ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBefferViewの略
+UINT CbvTbvIncSize;
+UINT CbvTbvIdx = 0;
+//コンスタントバッファ０
+ID3D12Resource* ConstBuf0;
 struct CONST_BUF0 {
     XMMATRIX mat;
 };
+CONST_BUF0* MapConstBuf0;
+//コンスタントバッファ１
+ID3D12Resource* ConstBuf1;
 struct CONST_BUF1 {
     XMFLOAT4 diffuse;
 };
-CONST_BUF0* MapConstBuf0;
 CONST_BUF1* MapConstBuf1;
-ID3D12Resource* ConstBuf0;
-ID3D12Resource* ConstBuf1;
+//テクスチャバッファ
 ID3D12Resource* TextureBuf;
-ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBefferViewの略
 
 //パイプライン--------------------------------------------------------------------
 ID3D12RootSignature* RootSignature;

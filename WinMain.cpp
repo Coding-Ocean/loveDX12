@@ -192,30 +192,34 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			}
 		}
 
-
 		//３Dモデルのテキストデータを開く
 		std::ifstream file("assets\\plane\\plane.txt");
 		assert(!file.fail());
 
 		std::string dataType;
 		int numVertices = 0;
+		int numVertexElements = 0;
 		int numElements = 0;
-		UINT size = 0;
+		UINT strideInBytes = 0;
+		UINT sizeInBytes = 0;
 
 		//頂点バッファ、位置。
 		{
 			//位置の生データ
 			file >> dataType;
 			assert(dataType == "positions");
-			file >> numVertices;//頂点数
-			numElements = numVertices * 3;//要素数；
-			size = sizeof(float) * numElements;//全バイト数
+
+			file >> numVertices;//全頂点数
+			numVertexElements = 3;//１頂点の要素数
+			numElements = numVertexElements * numVertices;//全頂点要素数
+
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
+
 			std::vector<float>positions(numElements);
 			for (int i = 0; i < numElements; i++) {
 				file >> positions[i];
 			}
-
-			NumVertices = numVertices;//インデックスを使用しない描画の時に、これを使用するので取っておく
 
 			//位置のバッファをつくる
 			D3D12_HEAP_PROPERTIES prop = {};
@@ -227,7 +231,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment = 0;
-			desc.Width = size;//全バイト数
+			desc.Width = sizeInBytes;//全バイト数
 			desc.Height = 1;
 			desc.DepthOrArraySize = 1;
 			desc.MipLevels = 1;
@@ -248,23 +252,28 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			float* mappedBuf;
 			Hr = PositionBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, positions.data(), size);
+			memcpy(mappedBuf, positions.data(), sizeInBytes);
 			//std::copy(positions.begin(), positions.end(), mappedBuf);
 			PositionBuf->Unmap(0, nullptr);
 
 			//位置バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
 			PositionBufView.BufferLocation = PositionBuf->GetGPUVirtualAddress();
-			PositionBufView.SizeInBytes = size;
-			PositionBufView.StrideInBytes = sizeof(float) * 3;//１頂点のバイト数
+			PositionBufView.SizeInBytes = sizeInBytes;//全バイト数
+			PositionBufView.StrideInBytes = strideInBytes;//１頂点のバイト数
 		}
 		//頂点バッファ、テクスチャ座標。
 		{
 			//テクスチャ座標の生データ
 			file >> dataType;
 			assert(dataType == "texcoords");
+
 			file >> numVertices;//頂点数
-			numElements = numVertices * 2;//要素数；
-			size = sizeof(float) * numElements;//全バイト数
+			numVertexElements = 2;//１頂点の要素数
+			numElements = numVertexElements * numVertices;//全頂点要素数
+			
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
+			
 			std::vector<float> texcoords(numElements);
 			for (int i = 0; i < numElements; i++) {
 				file >> texcoords[i];
@@ -280,7 +289,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment = 0;
-			desc.Width = size;//全バイト数
+			desc.Width = sizeInBytes;//全バイト数
 			desc.Height = 1;
 			desc.DepthOrArraySize = 1;
 			desc.MipLevels = 1;
@@ -301,28 +310,29 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			float* mappedBuf;
 			Hr = TexcoordBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, texcoords.data(), size);
+			memcpy(mappedBuf, texcoords.data(), sizeInBytes);
 			//std::copy(texcoords.begin(), texcoords.end(), mappedBuf);
 			TexcoordBuf->Unmap(0, nullptr);
 
 			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
 			TexcoordBufView.BufferLocation = TexcoordBuf->GetGPUVirtualAddress();
-			TexcoordBufView.SizeInBytes = size;//全バイト数
-			TexcoordBufView.StrideInBytes = sizeof(float) * 2;//1頂点のバイト数
+			TexcoordBufView.SizeInBytes = sizeInBytes;//全バイト数
+			TexcoordBufView.StrideInBytes = strideInBytes;//1頂点のバイト数
 		}
 		//頂点インデックスバッファ
 		{
 			//インデックスの生データ
 			file >> dataType;
 			assert(dataType == "indices");
+			
 			file >> numElements;//インデックスはこれが要素数；
-			size = sizeof(UINT16) * numElements;//全バイト数
+			
+			sizeInBytes = sizeof(UINT16) * numElements;//全バイト数
+			
 			std::vector<UINT16> indices(numElements);
 			for (int i = 0; i < numElements; i++) {
 				file >> indices[i];
 			}
-
-			NumIndices = numElements;//インデックスを使用する描画の時に使用するので取っておく
 
 			//インデックスバッファをつくる
 			D3D12_HEAP_PROPERTIES prop = {};
@@ -334,7 +344,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment = 0;
-			desc.Width = size;//全バイト数
+			desc.Width = sizeInBytes;//全バイト数
 			desc.Height = 1;
 			desc.DepthOrArraySize = 1;
 			desc.MipLevels = 1;
@@ -355,18 +365,30 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			UINT16* mappedBuf = nullptr;
 			Hr = IndexBuf->Map(0, nullptr, (void**)&mappedBuf);
 			assert(SUCCEEDED(Hr));
-			memcpy(mappedBuf, indices.data(), size);
+			memcpy(mappedBuf, indices.data(), sizeInBytes);
 			//std::copy(indices.begin(), indices.end(), mappedBuf);
 			IndexBuf->Unmap(0, nullptr);
 
 			//インデックスバッファビューをつくる
 			IndexBufView.BufferLocation = IndexBuf->GetGPUVirtualAddress();
-			IndexBufView.SizeInBytes = size;
+			IndexBufView.SizeInBytes = sizeInBytes;
 			IndexBufView.Format = DXGI_FORMAT_R16_UINT;
 		}
-		//コンスタントバッファとテクスチャバッファ ⇒ ディスクリプタヒープ
+		//コンスタントバッファとテクスチャバッファの「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
 		{
-			//コンスタントバッファ０をつくる
+			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+			desc.NodeMask = 0;
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
+			assert(SUCCEEDED(Hr));
+			//ディスクリプタのサイズ
+			CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		}
+		//コンスタントバッファ０
+		{
+			//バッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
 				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -393,12 +415,25 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 					nullptr,
 					IID_PPV_ARGS(&ConstBuf0));
 				assert(SUCCEEDED(Hr));
-
-				//マップしておいて、メインループ中で更新する。
+			}
+			//マップしておく。（メインループ中で更新する）
+			{
 				Hr = ConstBuf0->Map(0, nullptr, (void**)&MapConstBuf0);
 				assert(SUCCEEDED(Hr));
 			}
-			//コンスタントバッファ１をつくる
+			//ビューをディスクリプタヒープにつくる
+			{
+				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+				desc.BufferLocation = ConstBuf0->GetGPUVirtualAddress();
+				desc.SizeInBytes = static_cast<UINT>(ConstBuf0->GetDesc().Width);
+				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
+				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
+			}
+		}
+		//コンスタントバッファ１
+		{
+			//バッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
 				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -425,12 +460,25 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 					nullptr,
 					IID_PPV_ARGS(&ConstBuf1));
 				assert(SUCCEEDED(Hr));
-
-				//マップしておいて、メインループ中で更新する。
+			}
+			//マップしておく。（メインループ中で更新する）
+			{
 				Hr = ConstBuf1->Map(0, nullptr, (void**)&MapConstBuf1);
 				assert(SUCCEEDED(Hr));
 			}
-			//テクスチャバッファをつくる(Microsoft推奨 Direct Memory Accessバージョン)
+			//ビューをディスクリプタヒープにつくる
+			{
+				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+				desc.BufferLocation = ConstBuf1->GetGPUVirtualAddress();
+				desc.SizeInBytes = static_cast<UINT>(ConstBuf1->GetDesc().Width);
+				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
+				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
+			}
+		}
+		//テクスチャバッファ
+		{
+			//ファイルを読み込み、バッファをつくり、データを流し込む
 			{
 				//ファイル名を読み込む
 				file >> dataType;
@@ -568,54 +616,18 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				uploadBuf->Release();
 				stbi_image_free(pixels);
 			}{}
-			//ディスクリプタヒープをつくり、そこにビューをつくる
+			//ビューをディスクリプタヒープにつくる
 			{
-				//「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
-				{
-					D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-					desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-					desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
-					desc.NodeMask = 0;
-					desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-					Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
-					assert(SUCCEEDED(Hr));
-				}
-
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+				desc.Format = TextureBuf->GetDesc().Format;
+				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;//2Dテクスチャ
+				desc.Texture2D.MipLevels = 1;//ミップマップは使用しないので1
 				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
-				auto heapSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-				//コンスタントバッファ０の「ビュー」を「ディスクリプタヒープ」につくる
-				{
-					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-					desc.BufferLocation = ConstBuf0->GetGPUVirtualAddress();
-					desc.SizeInBytes = static_cast<UINT>(ConstBuf0->GetDesc().Width);
-					Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
-				}
-
-				hCbvTbvHeap.ptr += heapSize;
-
-				//コンスタントバッファ１の「ビュー」を「ディスクリプタヒープ」につくる
-				{
-					D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-					desc.BufferLocation = ConstBuf1->GetGPUVirtualAddress();
-					desc.SizeInBytes = static_cast<UINT>(ConstBuf1->GetDesc().Width);
-					Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
-				}
-
-				hCbvTbvHeap.ptr += heapSize;
-
-				//テクスチャバッファの「ビュー」を「ディスクリプタヒープ」につくる
-				{
-					D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-					desc.Format = TextureBuf->GetDesc().Format;
-					desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-					desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;//2Dテクスチャ
-					desc.Texture2D.MipLevels = 1;//ミップマップは使用しないので1
-					Device->CreateShaderResourceView(TextureBuf, &desc, hCbvTbvHeap);
-				}
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
+				Device->CreateShaderResourceView(TextureBuf, &desc, hCbvTbvHeap);
 			}
 		}
-
 	}{}
 	//パイプライン
 	{
@@ -848,13 +860,15 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			CommandList->SetDescriptorHeaps(1, &CbvTbvHeap);
 			//ディスクリプタヒープをディスクリプタテーブルにセット。シェーダと紐づく。
 			CommandList->SetGraphicsRootDescriptorTable(0, CbvTbvHeap->GetGPUDescriptorHandleForHeapStart());
-#if 1
+#if 0
 			//描画。インデックスを使用しない
-			CommandList->DrawInstanced(NumVertices, 1, 0, 0);
+			UINT numVertices = PositionBufView.SizeInBytes / PositionBufView.StrideInBytes;
+			CommandList->DrawInstanced(numVertices, 1, 0, 0);
 #else
 			//描画。インデックスを使用する
+			UINT numIndices = IndexBufView.SizeInBytes / sizeof(UINT16);
 			CommandList->IASetIndexBuffer(&IndexBufView);
-			CommandList->DrawIndexedInstanced(NumIndices, 1, 0, 0, 0);
+			CommandList->DrawIndexedInstanced(numIndices, 1, 0, 0, 0);
 #endif
 		}
 		//バックバッファを表示
