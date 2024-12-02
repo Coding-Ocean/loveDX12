@@ -12,7 +12,7 @@
 #include "stb_image.h"
 
 using namespace DirectX;
-void WaitDrawDone();
+void WaitGpu();
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
 //ウィンドウ------------------------------------------------------------------------
@@ -48,7 +48,7 @@ IDXGISwapChain4* SwapChain;
 ID3D12Resource* BackBufs[2];
 UINT BackBufIdx;
 ID3D12DescriptorHeap* BbvHeap;//"Bbv"は"BackBufView"の略
-UINT BbvHeapSize;
+UINT BbvIncSize;
 //デプスステンシルバッファ
 ID3D12Resource* DepthStencilBuf;
 ID3D12DescriptorHeap* DsvHeap;//"Dsv"は"DepthStencilBufView"の略
