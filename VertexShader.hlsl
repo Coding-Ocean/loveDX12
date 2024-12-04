@@ -5,6 +5,6 @@ void main(
     out float4 o_pos : SV_POSITION,
     out float2 o_uv : TEXCOORD)
 {
-    o_pos = mul(Mat, i_pos);
+    o_pos = mul(WorldViewProj, i_pos);
     o_uv = i_uv;
 }

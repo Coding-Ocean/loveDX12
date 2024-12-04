@@ -8,10 +8,12 @@
 #include<cassert>
 #include<Windows.h>
 #include<DirectXMath.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 using namespace DirectX;
+
 void WaitGpu();
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
@@ -41,51 +43,51 @@ HANDLE FenceEvent;
 UINT64 FenceValue;
 //デバッグ
 HRESULT Hr;
-
-//リソース----------------------------------------------------------------------
-//バックバッファ
+//レンダーターゲットリソース-------------------------------------------------------
+//　バックバッファ
 IDXGISwapChain4* SwapChain;
-ID3D12Resource* BackBufs[2];
+ID3D12Resource* BackBuffers[2];
 UINT BackBufIdx;
 ID3D12DescriptorHeap* BbvHeap;//"Bbv"は"BackBufView"の略
 UINT BbvIncSize;
-//デプスステンシルバッファ
-ID3D12Resource* DepthStencilBuf;
+//　デプスステンシルバッファ
+ID3D12Resource* DepthStencilBuffer;
 ID3D12DescriptorHeap* DsvHeap;//"Dsv"は"DepthStencilBufView"の略
-
-//頂点バッファ
-ID3D12Resource* PositionBuf;
-D3D12_VERTEX_BUFFER_VIEW PositionBufView;
-ID3D12Resource* TexcoordBuf;
-D3D12_VERTEX_BUFFER_VIEW TexcoordBufView;
-//頂点インデックスバッファ
-ID3D12Resource* IndexBuf;
-D3D12_INDEX_BUFFER_VIEW	IndexBufView;
-
-//コンスタントバッファ、テクスチャバッファのディスクリプタヒープ
-ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBefferViewの略
-UINT CbvTbvIncSize;
-UINT CbvTbvIdx = 0;
-//コンスタントバッファ０
-ID3D12Resource* ConstBuf0;
-struct CONST_BUF0 {
-    XMMATRIX mat;
-};
-CONST_BUF0* MapConstBuf0;
-//コンスタントバッファ１
-ID3D12Resource* ConstBuf1;
-struct CONST_BUF1 {
-    XMFLOAT4 diffuse;
-};
-CONST_BUF1* MapConstBuf1;
-//テクスチャバッファ
-ID3D12Resource* TextureBuf;
-
 //パイプライン--------------------------------------------------------------------
 ID3D12RootSignature* RootSignature;
 ID3D12PipelineState* PipelineState;
 D3D12_VIEWPORT Viewport;
 D3D12_RECT ScissorRect;
+
+//メッシュリソース---------------------------------------------------------------
+//　頂点バッファ
+ID3D12Resource* PositionBuffer;
+D3D12_VERTEX_BUFFER_VIEW Pbv;
+ID3D12Resource* TexcoordBuffer;
+D3D12_VERTEX_BUFFER_VIEW Tcbv;
+//　頂点インデックスバッファ
+ID3D12Resource* IndexBuffer;
+D3D12_INDEX_BUFFER_VIEW	Ibv;
+//　コンスタントバッファ、テクスチャバッファのディスクリプタヒープ
+ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBufferViewの略
+UINT CbvTbvIncSize;
+UINT CbvTbvCurrentIdx = 0;
+//　コンスタントバッファマップ用構造体
+struct CONST_BUF0 {
+    XMMATRIX worldViewProj;
+};
+struct CONST_BUF1 {
+    XMFLOAT4 diffuse;
+};
+//　コンスタントバッファ０
+ID3D12Resource* ConstBuffer0;
+CONST_BUF0* CB0;
+//　コンスタントバッファ１
+ID3D12Resource* ConstBuffer1;
+CONST_BUF1* CB1;
+//　テクスチャバッファ
+ID3D12Resource* TextureBuf;
+
 
 //BIN_FILE12.hというヘッダを追加した方がいいかも
 #include<fstream>

@@ -132,11 +132,11 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 			for (UINT idx = 0; idx < 2; idx++) {
 				//バックバッファを取り出す
-				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBufs[idx]));
+				Hr = SwapChain->GetBuffer(idx, IID_PPV_ARGS(&BackBuffers[idx]));
 				assert(SUCCEEDED(Hr));
 				//バックバッファのビューをヒープにつくる
 				hBbvHeap.ptr += idx * BbvIncSize;
-				Device->CreateRenderTargetView(BackBufs[idx], nullptr, hBbvHeap);
+				Device->CreateRenderTargetView(BackBuffers[idx], nullptr, hBbvHeap);
 			}
 		}
 		//デプスステンシルバッファをつくる
@@ -166,7 +166,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				&desc,
 				D3D12_RESOURCE_STATE_DEPTH_WRITE, //デプス書き込みに使用
 				&depthClearValue,
-				IID_PPV_ARGS(&DepthStencilBuf));
+				IID_PPV_ARGS(&DepthStencilBuffer));
 			assert(SUCCEEDED(Hr));
 		}
 		//デプスステンシルバッファ「ビュー」の入れ物である「デスクリプタヒープ」をつくる
@@ -186,456 +186,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			desc.Flags = D3D12_DSV_FLAG_NONE;//フラグは特になし
 			D3D12_CPU_DESCRIPTOR_HANDLE hDsvHeap
 				= DsvHeap->GetCPUDescriptorHandleForHeapStart();
-			Device->CreateDepthStencilView(DepthStencilBuf, &desc, hDsvHeap);
-		}
-	}{}
-	//キャラクタリソース		
-	{
-		//３Dモデルのテキストデータを開く
-		std::ifstream file("assets\\plane\\plane.txt");
-		assert(!file.fail());
-
-		//頂点バッファ、インデックスバッファで使用する変数
-		std::string dataType;
-		UINT numVertices = 0;
-		UINT numVertexElements = 0;
-		UINT numArrayElements = 0;
-		UINT strideInBytes = 0;
-		UINT sizeInBytes = 0;
-
-		//頂点バッファ、位置。
-		{
-			//位置の生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "positions");
-
-			file >> numVertices;//全頂点数
-			numVertexElements = 3;//１頂点の要素数
-			numArrayElements = numVertexElements * numVertices;//全頂点要素数
-
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
-
-			std::vector<float>positions(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> positions[i];
-			}
-
-			//位置のバッファをつくる
-			{
-				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-				prop.CreationNodeMask = 1;
-				prop.VisibleNodeMask = 1;
-				D3D12_RESOURCE_DESC desc = {};
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				desc.Alignment = 0;
-				desc.Width = sizeInBytes;//全バイト数
-				desc.Height = 1;
-				desc.DepthOrArraySize = 1;
-				desc.MipLevels = 1;
-				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc.Count = 1;
-				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-				Hr = Device->CreateCommittedResource(
-					&prop,
-					D3D12_HEAP_FLAG_NONE,
-					&desc,
-					D3D12_RESOURCE_STATE_GENERIC_READ,
-					nullptr,
-					IID_PPV_ARGS(&PositionBuf));
-				assert(SUCCEEDED(Hr));
-			}
-			//位置バッファに生データをコピー
-			{
-				float* mappedBuf;
-				Hr = PositionBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
-				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, positions.data(), sizeInBytes);
-				//std::copy(positions.begin(), positions.end(), mappedBuf);
-				PositionBuf->Unmap(0, nullptr);
-			}
-			//位置バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
-			{
-				PositionBufView.BufferLocation = PositionBuf->GetGPUVirtualAddress();
-				PositionBufView.SizeInBytes = sizeInBytes;//全バイト数
-				PositionBufView.StrideInBytes = strideInBytes;//１頂点のバイト数
-			}
-		}
-		//頂点バッファ、テクスチャ座標。
-		{
-			//テクスチャ座標の生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "texcoords");
-
-			file >> numVertices;//頂点数
-			numVertexElements = 2;//１頂点の要素数
-			numArrayElements = numVertexElements * numVertices;//全頂点要素数
-
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
-
-			std::vector<float> texcoords(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> texcoords[i];
-			}
-			//テクスチャ座標バッファをつくる
-			{
-				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-				prop.CreationNodeMask = 1;
-				prop.VisibleNodeMask = 1;
-				D3D12_RESOURCE_DESC desc = {};
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				desc.Alignment = 0;
-				desc.Width = sizeInBytes;//全バイト数
-				desc.Height = 1;
-				desc.DepthOrArraySize = 1;
-				desc.MipLevels = 1;
-				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc.Count = 1;
-				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-				Hr = Device->CreateCommittedResource(
-					&prop,
-					D3D12_HEAP_FLAG_NONE,
-					&desc,
-					D3D12_RESOURCE_STATE_GENERIC_READ,
-					nullptr,
-					IID_PPV_ARGS(&TexcoordBuf));
-				assert(SUCCEEDED(Hr));
-			}
-			//テクスチャ座標バッファに生データをコピー
-			{
-				float* mappedBuf;
-				Hr = TexcoordBuf->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
-				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, texcoords.data(), sizeInBytes);
-				//std::copy(texcoords.begin(), texcoords.end(), mappedBuf);
-				TexcoordBuf->Unmap(0, nullptr);
-			}
-			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
-			{
-				TexcoordBufView.BufferLocation = TexcoordBuf->GetGPUVirtualAddress();
-				TexcoordBufView.SizeInBytes = sizeInBytes;//全バイト数
-				TexcoordBufView.StrideInBytes = strideInBytes;//1頂点のバイト数
-			}
-		}
-		//頂点インデックスバッファ
-		{
-			//インデックスの生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "indices");
-
-			file >> numArrayElements;//インデックスはこれが配列の要素数；
-
-			sizeInBytes = sizeof(UINT16) * numArrayElements;//全バイト数
-
-			std::vector<UINT16> indices(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> indices[i];
-			}
-			//インデックスバッファをつくる
-			{
-				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-				prop.CreationNodeMask = 1;
-				prop.VisibleNodeMask = 1;
-				D3D12_RESOURCE_DESC desc = {};
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				desc.Alignment = 0;
-				desc.Width = sizeInBytes;//全バイト数
-				desc.Height = 1;
-				desc.DepthOrArraySize = 1;
-				desc.MipLevels = 1;
-				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc.Count = 1;
-				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-				Hr = Device->CreateCommittedResource(
-					&prop,
-					D3D12_HEAP_FLAG_NONE,
-					&desc,
-					D3D12_RESOURCE_STATE_GENERIC_READ,
-					nullptr,
-					IID_PPV_ARGS(&IndexBuf));
-				assert(SUCCEEDED(Hr));
-			}
-			//作ったバッファにデータをコピー
-			{
-				UINT16* mappedBuf = nullptr;
-				Hr = IndexBuf->Map(0, nullptr, (void**)&mappedBuf);
-				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, indices.data(), sizeInBytes);
-				//std::copy(indices.begin(), indices.end(), mappedBuf);
-				IndexBuf->Unmap(0, nullptr);
-			}
-			//インデックスバッファビューをつくる
-			{
-				IndexBufView.BufferLocation = IndexBuf->GetGPUVirtualAddress();
-				IndexBufView.SizeInBytes = sizeInBytes;
-				IndexBufView.Format = DXGI_FORMAT_R16_UINT;
-			}
-		}
-		//コンスタントバッファとテクスチャバッファの「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
-		{
-			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
-			desc.NodeMask = 0;
-			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
-			assert(SUCCEEDED(Hr));
-			//ディスクリプタのサイズ
-			CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		}
-		//コンスタントバッファ０
-		{
-			//バッファをつくる
-			{
-				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-				prop.CreationNodeMask = 1;
-				prop.VisibleNodeMask = 1;
-				D3D12_RESOURCE_DESC desc = {};
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				desc.Alignment = 0;
-				desc.Width = (sizeof(CONST_BUF0) + 255) & ~255;//サイズを256の倍数にする
-				desc.Height = 1;
-				desc.DepthOrArraySize = 1;
-				desc.MipLevels = 1;
-				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
-				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-				Hr = Device->CreateCommittedResource(
-					&prop,
-					D3D12_HEAP_FLAG_NONE,
-					&desc,
-					D3D12_RESOURCE_STATE_GENERIC_READ,
-					nullptr,
-					IID_PPV_ARGS(&ConstBuf0));
-				assert(SUCCEEDED(Hr));
-			}
-			//マップしておく。（メインループ中で更新する）
-			{
-				Hr = ConstBuf0->Map(0, nullptr, (void**)&MapConstBuf0);
-				assert(SUCCEEDED(Hr));
-			}
-			//ビューをディスクリプタヒープにつくる
-			{
-				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-				desc.BufferLocation = ConstBuf0->GetGPUVirtualAddress();
-				desc.SizeInBytes = static_cast<UINT>(ConstBuf0->GetDesc().Width);
-				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
-				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
-				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
-			}
-		}
-		//コンスタントバッファ１
-		{
-			//バッファをつくる
-			{
-				D3D12_HEAP_PROPERTIES prop = {};
-				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-				prop.CreationNodeMask = 1;
-				prop.VisibleNodeMask = 1;
-				D3D12_RESOURCE_DESC desc = {};
-				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-				desc.Alignment = 0;
-				desc.Width = (sizeof(CONST_BUF1) + 255) & ~255;//サイズを256の倍数にする
-				desc.Height = 1;
-				desc.DepthOrArraySize = 1;
-				desc.MipLevels = 1;
-				desc.Format = DXGI_FORMAT_UNKNOWN;
-				desc.SampleDesc = { 1, 0 };
-				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-				Hr = Device->CreateCommittedResource(
-					&prop,
-					D3D12_HEAP_FLAG_NONE,
-					&desc,
-					D3D12_RESOURCE_STATE_GENERIC_READ,
-					nullptr,
-					IID_PPV_ARGS(&ConstBuf1));
-				assert(SUCCEEDED(Hr));
-			}
-			//マップしておく。（メインループ中で更新する）
-			{
-				Hr = ConstBuf1->Map(0, nullptr, (void**)&MapConstBuf1);
-				assert(SUCCEEDED(Hr));
-			}
-			//ビューをディスクリプタヒープにつくる
-			{
-				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-				desc.BufferLocation = ConstBuf1->GetGPUVirtualAddress();
-				desc.SizeInBytes = static_cast<UINT>(ConstBuf1->GetDesc().Width);
-				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
-				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
-				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
-			}
-		}
-		//テクスチャバッファ
-		{
-			//ファイルを読み込み、バッファをつくり、データを流し込む
-			{
-				//ファイル名を読み込む
-				file >> dataType;
-				assert(dataType == "texture");
-				std::string filename;
-				file >> filename;
-
-				//ファイルを読み込み、生データを取り出す
-				unsigned char* pixels = nullptr;
-				int width = 0, height = 0, bytePerPixel = 4;
-				pixels = stbi_load(filename.c_str(), &width, &height, nullptr, bytePerPixel);
-				assert(pixels != nullptr);
-
-				//１行のピッチを256の倍数にしておく(バッファサイズは256の倍数でなければいけない)
-				const UINT64 alignedRowPitch = (width * bytePerPixel + 0xff) & ~0xff;
-
-				//アップロード用中間バッファをつくり、生データをコピーしておく
-				ID3D12Resource* uploadBuf;
-				{
-					//テクスチャではなくフツーのバッファとしてつくる
-					D3D12_HEAP_PROPERTIES prop = {};
-					prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-					prop.CreationNodeMask = 0;
-					prop.VisibleNodeMask = 0;
-					D3D12_RESOURCE_DESC desc = {};
-					desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-					desc.Format = DXGI_FORMAT_UNKNOWN;
-					desc.Width = alignedRowPitch * height;
-					desc.Height = 1;
-					desc.DepthOrArraySize = 1;
-					desc.MipLevels = 1;
-					desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;//連続したデータですよ
-					desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
-					desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
-					desc.SampleDesc.Quality = 0;
-					Hr = Device->CreateCommittedResource(
-						&prop,
-						D3D12_HEAP_FLAG_NONE,
-						&desc,
-						D3D12_RESOURCE_STATE_GENERIC_READ,
-						nullptr,
-						IID_PPV_ARGS(&uploadBuf));
-					assert(SUCCEEDED(Hr));
-
-					//生データをuploadbuffに一旦コピーします
-					uint8_t* mapBuf = nullptr;
-					Hr = uploadBuf->Map(0, nullptr, (void**)&mapBuf);//マップ
-					auto srcAddress = pixels;
-					auto originalRowPitch = width * bytePerPixel;
-					for (int y = 0; y < height; ++y) {
-						memcpy(mapBuf, srcAddress, originalRowPitch);
-						//1行ごとの辻褄を合わせてやる
-						srcAddress += originalRowPitch;
-						mapBuf += alignedRowPitch;
-					}
-					uploadBuf->Unmap(0, nullptr);//アンマップ
-				}
-
-				//そして、最終コピー先であるテクスチャバッファを作る
-				{
-					D3D12_HEAP_PROPERTIES prop = {};
-					prop.Type = D3D12_HEAP_TYPE_DEFAULT;
-					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-					prop.CreationNodeMask = 0;
-					prop.VisibleNodeMask = 0;
-					D3D12_RESOURCE_DESC desc = {};
-					desc.MipLevels = 1;
-					desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-					desc.Width = width;
-					desc.Height = height;
-					desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-					desc.DepthOrArraySize = 1;
-					desc.SampleDesc.Count = 1;
-					desc.SampleDesc.Quality = 0;
-					desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-					Hr = Device->CreateCommittedResource(
-						&prop,
-						D3D12_HEAP_FLAG_NONE,
-						&desc,
-						D3D12_RESOURCE_STATE_COPY_DEST,
-						nullptr,
-						IID_PPV_ARGS(&TextureBuf));
-					assert(SUCCEEDED(Hr));
-				}
-
-				//uploadBufからtextureBufへコピーする長い道のりが始まります
-
-				//まずコピー元ロケーションの準備・フットプリント指定
-				D3D12_TEXTURE_COPY_LOCATION src = {};
-				src.pResource = uploadBuf;
-				src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-				src.PlacedFootprint.Footprint.Width = static_cast<UINT>(width);
-				src.PlacedFootprint.Footprint.Height = static_cast<UINT>(height);
-				src.PlacedFootprint.Footprint.Depth = static_cast<UINT>(1);
-				src.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(alignedRowPitch);
-				src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-				//コピー先ロケーションの準備・サブリソースインデックス指定
-				D3D12_TEXTURE_COPY_LOCATION dst = {};
-				dst.pResource = TextureBuf;
-				dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-				dst.SubresourceIndex = 0;
-				//uploadBufからTextureBufにコピーする
-				CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-				//TextureBufをコピー先からシェーダリソースに遷移する
-				D3D12_RESOURCE_BARRIER barrier = {};
-				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				barrier.Transition.pResource = TextureBuf;
-				barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-				barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				CommandList->ResourceBarrier(1, &barrier);
-				//uploadBufアンロード
-				CommandList->DiscardResource(uploadBuf, nullptr);
-				//コマンドリストを閉じて
-				CommandList->Close();
-				//実行
-				ID3D12CommandList* commandLists[] = { CommandList };
-				CommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-				//uploadBufがTextureBufにコピーされるまで待機する
-				WaitGpu();
-
-				//コマンドアロケータをリセット
-				HRESULT Hr = CommandAllocator->Reset();
-				assert(SUCCEEDED(Hr));
-				//コマンドリストをリセット
-				Hr = CommandList->Reset(CommandAllocator, nullptr);
-				assert(SUCCEEDED(Hr));
-
-				//開放
-				uploadBuf->Release();
-				stbi_image_free(pixels);
-			}{}
-			//ビューをディスクリプタヒープにつくる
-			{
-				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-				desc.Format = TextureBuf->GetDesc().Format;
-				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;//2Dテクスチャ
-				desc.Texture2D.MipLevels = 1;//ミップマップは使用しないので1
-				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
-				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvIdx++;
-				Device->CreateShaderResourceView(TextureBuf, &desc, hCbvTbvHeap);
-			}
+			Device->CreateDepthStencilView(DepthStencilBuffer, &desc, hDsvHeap);
 		}
 	}{}
 	//ルートシグネチャ
@@ -784,6 +335,458 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		ScissorRect.right = ClientWidth;
 		ScissorRect.bottom = ClientHeight;
 	}
+	//メッシュリソース		
+	{
+		//３Dモデルのテキストデータを開く
+		std::ifstream file("assets\\plane\\plane.txt");
+		assert(!file.fail());
+
+		//頂点バッファ、インデックスバッファで使用する変数
+		std::string dataType;
+		UINT numVertices = 0;
+		UINT numVertexElements = 0;
+		UINT numArrayElements = 0;
+		UINT strideInBytes = 0;
+		UINT sizeInBytes = 0;
+
+		//頂点バッファ、位置。
+		{
+			//位置の生データをファイルから読み込む
+			file >> dataType;
+			assert(dataType == "positions");
+
+			file >> numVertices;//全頂点数
+			numVertexElements = 3;//１頂点の要素数
+			numArrayElements = numVertexElements * numVertices;//全頂点要素数
+
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
+
+			std::vector<float>positions(numArrayElements);
+			for (UINT i = 0; i < numArrayElements; i++) {
+				file >> positions[i];
+			}
+
+			//位置のバッファをつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = sizeInBytes;//全バイト数
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc.Count = 1;
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&PositionBuffer));
+				assert(SUCCEEDED(Hr));
+			}
+			//位置バッファに生データをコピー
+			{
+				float* mappedBuf;
+				Hr = PositionBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
+				assert(SUCCEEDED(Hr));
+				memcpy(mappedBuf, positions.data(), sizeInBytes);
+				//std::copy(positions.begin(), positions.end(), mappedBuf);
+				PositionBuffer->Unmap(0, nullptr);
+			}
+			//位置バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
+			{
+				Pbv.BufferLocation = PositionBuffer->GetGPUVirtualAddress();
+				Pbv.SizeInBytes = sizeInBytes;//全バイト数
+				Pbv.StrideInBytes = strideInBytes;//１頂点のバイト数
+			}
+		}
+		//頂点バッファ、テクスチャ座標。
+		{
+			//テクスチャ座標の生データをファイルから読み込む
+			file >> dataType;
+			assert(dataType == "texcoords");
+
+			file >> numVertices;//頂点数
+			numVertexElements = 2;//１頂点の要素数
+			numArrayElements = numVertexElements * numVertices;//全頂点要素数
+
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
+
+			std::vector<float> texcoords(numArrayElements);
+			for (UINT i = 0; i < numArrayElements; i++) {
+				file >> texcoords[i];
+			}
+			//テクスチャ座標バッファをつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = sizeInBytes;//全バイト数
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc.Count = 1;
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&TexcoordBuffer));
+				assert(SUCCEEDED(Hr));
+			}
+			//テクスチャ座標バッファに生データをコピー
+			{
+				float* mappedBuf;
+				Hr = TexcoordBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
+				assert(SUCCEEDED(Hr));
+				memcpy(mappedBuf, texcoords.data(), sizeInBytes);
+				//std::copy(texcoords.begin(), texcoords.end(), mappedBuf);
+				TexcoordBuffer->Unmap(0, nullptr);
+			}
+			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
+			{
+				Tcbv.BufferLocation = TexcoordBuffer->GetGPUVirtualAddress();
+				Tcbv.SizeInBytes = sizeInBytes;//全バイト数
+				Tcbv.StrideInBytes = strideInBytes;//1頂点のバイト数
+			}
+		}
+		//頂点インデックスバッファ
+		{
+			//インデックスの生データをファイルから読み込む
+			file >> dataType;
+			assert(dataType == "indices");
+
+			file >> numArrayElements;//インデックスはこれが配列の要素数；
+
+			sizeInBytes = sizeof(UINT16) * numArrayElements;//全バイト数
+
+			std::vector<UINT16> indices(numArrayElements);
+			for (UINT i = 0; i < numArrayElements; i++) {
+				file >> indices[i];
+			}
+			//インデックスバッファをつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = sizeInBytes;//全バイト数
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc.Count = 1;
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&IndexBuffer));
+				assert(SUCCEEDED(Hr));
+			}
+			//作ったバッファにデータをコピー
+			{
+				UINT16* mappedBuf = nullptr;
+				Hr = IndexBuffer->Map(0, nullptr, (void**)&mappedBuf);
+				assert(SUCCEEDED(Hr));
+				memcpy(mappedBuf, indices.data(), sizeInBytes);
+				//std::copy(indices.begin(), indices.end(), mappedBuf);
+				IndexBuffer->Unmap(0, nullptr);
+			}
+			//インデックスバッファビューをつくる
+			{
+				Ibv.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
+				Ibv.SizeInBytes = sizeInBytes;
+				Ibv.Format = DXGI_FORMAT_R16_UINT;
+			}
+		}
+		//コンスタントバッファとテクスチャバッファの「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+			desc.NodeMask = 0;
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
+			assert(SUCCEEDED(Hr));
+			//ディスクリプタのサイズ
+			CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		}
+		//コンスタントバッファ０
+		{
+			//バッファをつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = (sizeof(CONST_BUF0) + 255) & ~255;//サイズを256の倍数にする
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc = { 1, 0 };
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&ConstBuffer0));
+				assert(SUCCEEDED(Hr));
+			}
+			//マップしておく。（メインループ中で更新する）
+			{
+				Hr = ConstBuffer0->Map(0, nullptr, (void**)&CB0);
+				assert(SUCCEEDED(Hr));
+			}
+			//ビューをディスクリプタヒープにつくる
+			{
+				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvCurrentIdx++;
+
+				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+				desc.BufferLocation = ConstBuffer0->GetGPUVirtualAddress();
+				desc.SizeInBytes = static_cast<UINT>(ConstBuffer0->GetDesc().Width);
+				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
+			}
+		}
+		//コンスタントバッファ１
+		{
+			//バッファをつくる
+			{
+				D3D12_HEAP_PROPERTIES prop = {};
+				prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+				prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				prop.CreationNodeMask = 1;
+				prop.VisibleNodeMask = 1;
+				D3D12_RESOURCE_DESC desc = {};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = (sizeof(CONST_BUF1) + 255) & ~255;//サイズを256の倍数にする
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc = { 1, 0 };
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				Hr = Device->CreateCommittedResource(
+					&prop,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&ConstBuffer1));
+				assert(SUCCEEDED(Hr));
+			}
+			//マップしておく。（メインループ中で更新する）
+			{
+				Hr = ConstBuffer1->Map(0, nullptr, (void**)&CB1);
+				assert(SUCCEEDED(Hr));
+			}
+			//ビューをディスクリプタヒープにつくる
+			{
+				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvCurrentIdx++;
+
+				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+				desc.BufferLocation = ConstBuffer1->GetGPUVirtualAddress();
+				desc.SizeInBytes = static_cast<UINT>(ConstBuffer1->GetDesc().Width);
+				Device->CreateConstantBufferView(&desc, hCbvTbvHeap);
+			}
+		}
+		//テクスチャバッファ
+		{
+			//ファイルを読み込み、バッファをつくり、データを流し込む
+			{
+				//ファイル名を読み込む
+				file >> dataType;
+				assert(dataType == "texture");
+				std::string filename;
+				file >> filename;
+
+				//ファイルを読み込み、生データを取り出す
+				unsigned char* pixels = nullptr;
+				int width = 0, height = 0, bytePerPixel = 4;
+				pixels = stbi_load(filename.c_str(), &width, &height, nullptr, bytePerPixel);
+				assert(pixels != nullptr);
+
+				//１行のピッチを256の倍数にしておく(バッファサイズは256の倍数でなければいけない)
+				const UINT64 alignedRowPitch = (width * bytePerPixel + 0xff) & ~0xff;
+
+				//アップロード用中間バッファをつくり、生データをコピーしておく
+				ID3D12Resource* uploadBuf;
+				{
+					//テクスチャではなくフツーのバッファとしてつくる
+					D3D12_HEAP_PROPERTIES prop = {};
+					prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+					prop.CreationNodeMask = 0;
+					prop.VisibleNodeMask = 0;
+					D3D12_RESOURCE_DESC desc = {};
+					desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+					desc.Format = DXGI_FORMAT_UNKNOWN;
+					desc.Width = alignedRowPitch * height;
+					desc.Height = 1;
+					desc.DepthOrArraySize = 1;
+					desc.MipLevels = 1;
+					desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;//連続したデータですよ
+					desc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+					desc.SampleDesc.Count = 1;//通常テクスチャなのでアンチェリしない
+					desc.SampleDesc.Quality = 0;
+					Hr = Device->CreateCommittedResource(
+						&prop,
+						D3D12_HEAP_FLAG_NONE,
+						&desc,
+						D3D12_RESOURCE_STATE_GENERIC_READ,
+						nullptr,
+						IID_PPV_ARGS(&uploadBuf));
+					assert(SUCCEEDED(Hr));
+
+					//生データをuploadbuffに一旦コピーします
+					uint8_t* mapBuf = nullptr;
+					Hr = uploadBuf->Map(0, nullptr, (void**)&mapBuf);//マップ
+					auto srcAddress = pixels;
+					auto originalRowPitch = width * bytePerPixel;
+					for (int y = 0; y < height; ++y) {
+						memcpy(mapBuf, srcAddress, originalRowPitch);
+						//1行ごとの辻褄を合わせてやる
+						srcAddress += originalRowPitch;
+						mapBuf += alignedRowPitch;
+					}
+					uploadBuf->Unmap(0, nullptr);//アンマップ
+				}
+
+				//そして、最終コピー先であるテクスチャバッファを作る
+				{
+					D3D12_HEAP_PROPERTIES prop = {};
+					prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+					prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+					prop.CreationNodeMask = 0;
+					prop.VisibleNodeMask = 0;
+					D3D12_RESOURCE_DESC desc = {};
+					desc.MipLevels = 1;
+					desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+					desc.Width = width;
+					desc.Height = height;
+					desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+					desc.DepthOrArraySize = 1;
+					desc.SampleDesc.Count = 1;
+					desc.SampleDesc.Quality = 0;
+					desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					Hr = Device->CreateCommittedResource(
+						&prop,
+						D3D12_HEAP_FLAG_NONE,
+						&desc,
+						D3D12_RESOURCE_STATE_COPY_DEST,
+						nullptr,
+						IID_PPV_ARGS(&TextureBuf));
+					assert(SUCCEEDED(Hr));
+				}
+
+				//uploadBufからtextureBufへコピーする長い道のりが始まります
+
+				//まずコピー元ロケーションの準備・フットプリント指定
+				D3D12_TEXTURE_COPY_LOCATION src = {};
+				src.pResource = uploadBuf;
+				src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+				src.PlacedFootprint.Footprint.Width = static_cast<UINT>(width);
+				src.PlacedFootprint.Footprint.Height = static_cast<UINT>(height);
+				src.PlacedFootprint.Footprint.Depth = static_cast<UINT>(1);
+				src.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(alignedRowPitch);
+				src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				//コピー先ロケーションの準備・サブリソースインデックス指定
+				D3D12_TEXTURE_COPY_LOCATION dst = {};
+				dst.pResource = TextureBuf;
+				dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+				dst.SubresourceIndex = 0;
+				//uploadBufからTextureBufにコピーする
+				CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+				//TextureBufをコピー先からシェーダリソースに遷移する
+				D3D12_RESOURCE_BARRIER barrier = {};
+				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				barrier.Transition.pResource = TextureBuf;
+				barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+				barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+				barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				CommandList->ResourceBarrier(1, &barrier);
+				//uploadBufアンロード
+				CommandList->DiscardResource(uploadBuf, nullptr);
+				//コマンドリストを閉じて
+				CommandList->Close();
+				//実行
+				ID3D12CommandList* commandLists[] = { CommandList };
+				CommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+				//uploadBufがTextureBufにコピーされるまで待機する
+				WaitGpu();
+
+				//コマンドアロケータをリセット
+				HRESULT Hr = CommandAllocator->Reset();
+				assert(SUCCEEDED(Hr));
+				//コマンドリストをリセット
+				Hr = CommandList->Reset(CommandAllocator, nullptr);
+				assert(SUCCEEDED(Hr));
+
+				//開放
+				uploadBuf->Release();
+				stbi_image_free(pixels);
+			}{}
+			//ビューをディスクリプタヒープにつくる
+			{
+				auto hCbvTbvHeap = CbvTbvHeap->GetCPUDescriptorHandleForHeapStart();
+				hCbvTbvHeap.ptr += CbvTbvIncSize * CbvTbvCurrentIdx++;
+
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+				desc.Format = TextureBuf->GetDesc().Format;
+				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;//2Dテクスチャ
+				desc.Texture2D.MipLevels = 1;//ミップマップは使用しないので1
+				Device->CreateShaderResourceView(TextureBuf, &desc, hCbvTbvHeap);
+			}
+		}
+	}{}
 	//メインループ
 	while (true)
 	{
@@ -814,9 +817,9 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, Aspect, 1.0f, 21.0f);
 
 			//コンスタントバッファ０更新
-			MapConstBuf0->mat = world * view * proj;
+			CB0->worldViewProj = world * view * proj;
 			//コンスタントバッファ１更新
-			MapConstBuf1->diffuse = { 1.0f,1.0f,1.0f,1.0f };
+			CB1->diffuse = { 1.0f,1.0f,1.0f,1.0f };
 		}
 		//描画開始処理
 		{
@@ -827,7 +830,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_BARRIER barrier;
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースはバックバッファ
+			barrier.Transition.pResource = BackBuffers[BackBufIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;//遷移前はPresent
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移後は描画ターゲット
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -856,18 +859,18 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			//ディスクリプタヒープをGPUにセット。まだ、シェーダと紐づいていない。
 			CommandList->SetDescriptorHeaps(1, &CbvTbvHeap);
 		}
-		//キャラクタの描画
+		//メッシュの描画
 		{
 			//頂点をセット
-			D3D12_VERTEX_BUFFER_VIEW vertexBufViews[] = { PositionBufView, TexcoordBufView, };
+			D3D12_VERTEX_BUFFER_VIEW vertexBufViews[] = { Pbv, Tcbv, };
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			CommandList->IASetVertexBuffers(0, _countof(vertexBufViews), vertexBufViews);
 			//インデックスをセット
-			CommandList->IASetIndexBuffer(&IndexBufView);
+			CommandList->IASetIndexBuffer(&Ibv);
 			//コンスタントとテクスチャをセット
 			CommandList->SetGraphicsRootDescriptorTable(0, CbvTbvHeap->GetGPUDescriptorHandleForHeapStart());
 			//描画
-			UINT numIndices = IndexBufView.SizeInBytes / sizeof(UINT16);
+			UINT numIndices = Ibv.SizeInBytes / sizeof(UINT16);
 			CommandList->DrawIndexedInstanced(numIndices, 1, 0, 0, 0);
 		}
 		//描画終了処理
@@ -876,7 +879,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_BARRIER barrier;
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBufs[BackBufIdx];//リソースはバックバッファ
+			barrier.Transition.pResource = BackBuffers[BackBufIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移前は描画ターゲット
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;//遷移後はPresent
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -910,20 +913,20 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 		CbvTbvHeap->Release();
 		TextureBuf->Release();
-		ConstBuf1->Unmap(0, nullptr);
-		ConstBuf1->Release();
-		ConstBuf0->Unmap(0, nullptr);
-		ConstBuf0->Release();
+		ConstBuffer1->Unmap(0, nullptr);
+		ConstBuffer1->Release();
+		ConstBuffer0->Unmap(0, nullptr);
+		ConstBuffer0->Release();
 
-		IndexBuf->Release();
-		TexcoordBuf->Release();
-		PositionBuf->Release();
+		IndexBuffer->Release();
+		TexcoordBuffer->Release();
+		PositionBuffer->Release();
 
 		DsvHeap->Release();
-		DepthStencilBuf->Release();
+		DepthStencilBuffer->Release();
 		BbvHeap->Release();
-		BackBufs[0]->Release();
-		BackBufs[1]->Release();
+		BackBuffers[0]->Release();
+		BackBuffers[1]->Release();
 		SwapChain->Release();
 
 		CloseHandle(FenceEvent);

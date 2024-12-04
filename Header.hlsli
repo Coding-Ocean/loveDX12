@@ -1,6 +1,6 @@
 cbuffer b0 : register(b0)
 {
-    matrix Mat;
+    matrix WorldViewProj;
 }
 cbuffer b1 : register(b1)
 {
