@@ -47,7 +47,7 @@ HRESULT Hr;
 //　バックバッファ
 IDXGISwapChain4* SwapChain;
 ID3D12Resource* BackBuffers[2];
-UINT BackBufIdx;
+UINT BackBufferIdx;
 ID3D12DescriptorHeap* BbvHeap;//"Bbv"は"BackBufView"の略
 UINT BbvIncSize;
 //　デプスステンシルバッファ

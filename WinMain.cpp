@@ -335,7 +335,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		ScissorRect.right = ClientWidth;
 		ScissorRect.bottom = ClientHeight;
 	}
-	//メッシュリソース		
+	//メッシュリソース	
 	{
 		//３Dモデルのテキストデータを開く
 		std::ifstream file("assets\\plane\\plane.txt");
@@ -359,14 +359,13 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			numVertexElements = 3;//１頂点の要素数
 			numArrayElements = numVertexElements * numVertices;//全頂点要素数
 
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
-
 			std::vector<float>positions(numArrayElements);
 			for (UINT i = 0; i < numArrayElements; i++) {
 				file >> positions[i];
 			}
 
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
 			//位置のバッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -421,13 +420,13 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			numVertexElements = 2;//１頂点の要素数
 			numArrayElements = numVertexElements * numVertices;//全頂点要素数
 
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
-
 			std::vector<float> texcoords(numArrayElements);
 			for (UINT i = 0; i < numArrayElements; i++) {
 				file >> texcoords[i];
 			}
+
+			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
+			sizeInBytes = strideInBytes * numVertices;//全バイト数
 			//テクスチャ座標バッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -480,12 +479,12 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 			file >> numArrayElements;//インデックスはこれが配列の要素数；
 
-			sizeInBytes = sizeof(UINT16) * numArrayElements;//全バイト数
-
 			std::vector<UINT16> indices(numArrayElements);
 			for (UINT i = 0; i < numArrayElements; i++) {
 				file >> indices[i];
 			}
+
+			sizeInBytes = sizeof(UINT16) * numArrayElements;//全バイト数
 			//インデックスバッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -541,6 +540,8 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			assert(SUCCEEDED(Hr));
 			//ディスクリプタのサイズ
 			CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			//ディスクリプタの現在のインデックス
+			CbvTbvCurrentIdx = 0;
 		}
 		//コンスタントバッファ０
 		{
@@ -824,13 +825,13 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		//描画開始処理
 		{
 			//現在のバックバッファのインデックスを取得。このプログラムの場合0 or 1になる。
-			BackBufIdx = SwapChain->GetCurrentBackBufferIndex();
+			BackBufferIdx = SwapChain->GetCurrentBackBufferIndex();
 
 			//バリアでバックバッファを描画ターゲットに切り替える
 			D3D12_RESOURCE_BARRIER barrier;
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBuffers[BackBufIdx];//リソースはバックバッファ
+			barrier.Transition.pResource = BackBuffers[BackBufferIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;//遷移前はPresent
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移後は描画ターゲット
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -838,7 +839,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 
 			//バックバッファの場所を指すディスクリプタヒープハンドルを用意する
 			auto hBbvHeap = BbvHeap->GetCPUDescriptorHandleForHeapStart();
-			hBbvHeap.ptr += BackBufIdx * BbvIncSize;
+			hBbvHeap.ptr += BbvIncSize * BackBufferIdx;
 			//デプスステンシルバッファのディスクリプタハンドルを用意する
 			auto hDsvHeap = DsvHeap->GetCPUDescriptorHandleForHeapStart();
 			//バックバッファとデプスステンシルバッファを描画ターゲットとして設定する
@@ -861,14 +862,16 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		}
 		//メッシュの描画
 		{
-			//頂点をセット
-			D3D12_VERTEX_BUFFER_VIEW vertexBufViews[] = { Pbv, Tcbv, };
+			//トポロジーをセット
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			CommandList->IASetVertexBuffers(0, _countof(vertexBufViews), vertexBufViews);
+			//頂点をセット
+			D3D12_VERTEX_BUFFER_VIEW vbvs[] = { Pbv, Tcbv, };
+			CommandList->IASetVertexBuffers(0, _countof(vbvs), vbvs);
 			//インデックスをセット
 			CommandList->IASetIndexBuffer(&Ibv);
 			//コンスタントとテクスチャをセット
-			CommandList->SetGraphicsRootDescriptorTable(0, CbvTbvHeap->GetGPUDescriptorHandleForHeapStart());
+			auto hCbvTbvHeap = CbvTbvHeap->GetGPUDescriptorHandleForHeapStart();
+			CommandList->SetGraphicsRootDescriptorTable(0, hCbvTbvHeap);
 			//描画
 			UINT numIndices = Ibv.SizeInBytes / sizeof(UINT16);
 			CommandList->DrawIndexedInstanced(numIndices, 1, 0, 0, 0);
@@ -879,7 +882,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 			D3D12_RESOURCE_BARRIER barrier;
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;//このバリアは状態遷移タイプ
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = BackBuffers[BackBufIdx];//リソースはバックバッファ
+			barrier.Transition.pResource = BackBuffers[BackBufferIdx];//リソースはバックバッファ
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;//遷移前は描画ターゲット
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;//遷移後はPresent
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
