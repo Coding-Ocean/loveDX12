@@ -59,6 +59,19 @@ ID3D12PipelineState* PipelineState;
 D3D12_VIEWPORT Viewport;
 D3D12_RECT ScissorRect;
 
+//コンスタントバッファ、テクスチャバッファのディスクリプタヒープ-------------------------
+ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBufferViewの略
+UINT CbvTbvIncSize;
+UINT CbvTbvCurrentIdx = 0;
+
+//コンスタントバッファマップ用構造体
+struct CONST_BUF0 {
+    XMMATRIX worldViewProj;
+};
+struct CONST_BUF1 {
+    XMFLOAT4 diffuse;
+};
+
 //メッシュリソース---------------------------------------------------------------
 //　頂点バッファ
 ID3D12Resource* PositionBuffer;
@@ -68,17 +81,6 @@ D3D12_VERTEX_BUFFER_VIEW Tcbv;
 //　頂点インデックスバッファ
 ID3D12Resource* IndexBuffer;
 D3D12_INDEX_BUFFER_VIEW	Ibv;
-//　コンスタントバッファ、テクスチャバッファのディスクリプタヒープ
-ID3D12DescriptorHeap* CbvTbvHeap;//CbvはConstantBufferView、TbvはTextureBufferViewの略
-UINT CbvTbvIncSize;
-UINT CbvTbvCurrentIdx = 0;
-//　コンスタントバッファマップ用構造体
-struct CONST_BUF0 {
-    XMMATRIX worldViewProj;
-};
-struct CONST_BUF1 {
-    XMFLOAT4 diffuse;
-};
 //　コンスタントバッファ０
 ID3D12Resource* ConstBuffer0;
 CONST_BUF0* CB0;

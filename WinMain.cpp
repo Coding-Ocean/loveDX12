@@ -336,6 +336,23 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		ScissorRect.right = ClientWidth;
 		ScissorRect.bottom = ClientHeight;
 	}
+
+	//コンスタントバッファとテクスチャバッファの「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
+		desc.NodeMask = 0;
+		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
+		assert(SUCCEEDED(Hr));
+
+		//ディスクリプタのサイズ
+		CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		//ディスクリプタの現在のインデックス
+		CbvTbvCurrentIdx = 0;
+	}
+
 	//メッシュリソース	
 	{
 		//頂点バッファ、位置。
@@ -471,26 +488,12 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				memcpy(mappedBuf, Indices, sizeInBytes);
 				IndexBuffer->Unmap(0, nullptr);
 			}
-			//インデックスバッファビューをつくる
+			//インデックスバッファビューをつくる（ディスクリプタヒープに作らなくてよい）
 			{
 				Ibv.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
 				Ibv.SizeInBytes = sizeInBytes;
 				Ibv.Format = DXGI_FORMAT_R16_UINT;
 			}
-		}
-		//コンスタントバッファとテクスチャバッファの「ビュー」の入れ物である「ディスクリプタヒープ」をつくる
-		{
-			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			desc.NumDescriptors = 3;//コンスタントバッファ２つとテクスチャバッファ１つ
-			desc.NodeMask = 0;
-			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			Hr = Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&CbvTbvHeap));
-			assert(SUCCEEDED(Hr));
-			//ディスクリプタのサイズ
-			CbvTbvIncSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			//ディスクリプタの現在のインデックス
-			CbvTbvCurrentIdx = 0;
 		}
 		//コンスタントバッファ０
 		{
