@@ -127,6 +127,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="model.h" />
+    <ClInclude Include="model2.h" />
     <ClInclude Include="WinMain.h" />
   </ItemGroup>
   <ItemGroup>

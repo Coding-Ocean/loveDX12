@@ -1,4 +1,5 @@
 #include"WinMain.h"
+#include"model.h"
 
 INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 {
@@ -337,35 +338,10 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 	}
 	//メッシュリソース	
 	{
-		//３Dモデルのテキストデータを開く
-		std::ifstream file("assets\\plane\\plane.txt");
-		assert(!file.fail());
-
-		//頂点バッファ、インデックスバッファで使用する変数
-		std::string dataType;
-		UINT numVertices = 0;
-		UINT numVertexElements = 0;
-		UINT numArrayElements = 0;
-		UINT strideInBytes = 0;
-		UINT sizeInBytes = 0;
-
 		//頂点バッファ、位置。
 		{
-			//位置の生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "positions");
-
-			file >> numVertices;//全頂点数
-			numVertexElements = 3;//１頂点の要素数
-			numArrayElements = numVertexElements * numVertices;//全頂点要素数
-
-			std::vector<float>positions(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> positions[i];
-			}
-
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
+			UINT sizeInBytes = sizeof(::Positions);//全バイト数
+			UINT strideInBytes = sizeof(float) * ::NumPosisionElements;//１頂点のバイト数
 			//位置のバッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -399,8 +375,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				float* mappedBuf;
 				Hr = PositionBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
 				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, positions.data(), sizeInBytes);
-				//std::copy(positions.begin(), positions.end(), mappedBuf);
+				memcpy(mappedBuf, Positions, sizeInBytes);
 				PositionBuffer->Unmap(0, nullptr);
 			}
 			//位置バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
@@ -412,21 +387,8 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		}
 		//頂点バッファ、テクスチャ座標。
 		{
-			//テクスチャ座標の生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "texcoords");
-
-			file >> numVertices;//頂点数
-			numVertexElements = 2;//１頂点の要素数
-			numArrayElements = numVertexElements * numVertices;//全頂点要素数
-
-			std::vector<float> texcoords(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> texcoords[i];
-			}
-
-			strideInBytes = sizeof(float) * numVertexElements;//1頂点のバイト数
-			sizeInBytes = strideInBytes * numVertices;//全バイト数
+			UINT sizeInBytes = sizeof(::Texcoords);//全バイト数
+			UINT strideInBytes = sizeof(float) * ::NumTexcoordElements;//1頂点のバイト数
 			//テクスチャ座標バッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -460,8 +422,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				float* mappedBuf;
 				Hr = TexcoordBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedBuf));
 				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, texcoords.data(), sizeInBytes);
-				//std::copy(texcoords.begin(), texcoords.end(), mappedBuf);
+				memcpy(mappedBuf, Texcoords, sizeInBytes);
 				TexcoordBuffer->Unmap(0, nullptr);
 			}
 			//テクスチャ座標バッファのビューを初期化しておく。（ディスクリプタヒープに作らなくてよい）
@@ -473,18 +434,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		}
 		//頂点インデックスバッファ
 		{
-			//インデックスの生データをファイルから読み込む
-			file >> dataType;
-			assert(dataType == "indices");
-
-			file >> numArrayElements;//インデックスはこれが配列の要素数；
-
-			std::vector<UINT16> indices(numArrayElements);
-			for (UINT i = 0; i < numArrayElements; i++) {
-				file >> indices[i];
-			}
-
-			sizeInBytes = sizeof(UINT16) * numArrayElements;//全バイト数
+			UINT sizeInBytes = sizeof(::Indices);//全バイト数
 			//インデックスバッファをつくる
 			{
 				D3D12_HEAP_PROPERTIES prop = {};
@@ -518,8 +468,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 				UINT16* mappedBuf = nullptr;
 				Hr = IndexBuffer->Map(0, nullptr, (void**)&mappedBuf);
 				assert(SUCCEEDED(Hr));
-				memcpy(mappedBuf, indices.data(), sizeInBytes);
-				//std::copy(indices.begin(), indices.end(), mappedBuf);
+				memcpy(mappedBuf, Indices, sizeInBytes);
 				IndexBuffer->Unmap(0, nullptr);
 			}
 			//インデックスバッファビューをつくる
@@ -639,16 +588,10 @@ INT WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ INT)
 		{
 			//ファイルを読み込み、バッファをつくり、データを流し込む
 			{
-				//ファイル名を読み込む
-				file >> dataType;
-				assert(dataType == "texture");
-				std::string filename;
-				file >> filename;
-
 				//ファイルを読み込み、生データを取り出す
 				unsigned char* pixels = nullptr;
 				int width = 0, height = 0, bytePerPixel = 4;
-				pixels = stbi_load(filename.c_str(), &width, &height, nullptr, bytePerPixel);
+				pixels = stbi_load(::TexFilename, &width, &height, nullptr, bytePerPixel);
 				assert(pixels != nullptr);
 
 				//１行のピッチを256の倍数にしておく(バッファサイズは256の倍数でなければいけない)
